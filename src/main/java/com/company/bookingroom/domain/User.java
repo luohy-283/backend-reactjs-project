@@ -59,6 +59,10 @@ public class User extends AbstractAuditingEntity<Long> implements Serializable {
     @Column(name = "activated", nullable = false)
     private boolean activated = false;
 
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "department_id")
+    private Department department;
+
     @JsonIgnore
     @ManyToMany
     @JoinTable(
@@ -117,6 +121,14 @@ public class User extends AbstractAuditingEntity<Long> implements Serializable {
 
     public void setActivated(boolean activated) {
         this.activated = activated;
+    }
+
+    public Department getDepartment() {
+        return department;
+    }
+
+    public void setDepartment(Department department) {
+        this.department = department;
     }
 
     public Set<Authority> getAuthorities() {

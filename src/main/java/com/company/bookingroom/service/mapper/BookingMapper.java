@@ -21,6 +21,7 @@ public interface BookingMapper extends EntityMapper<BookingDTO, Booking> {
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "id", source = "id")
     @Mapping(target = "name", source = "name")
+    @Mapping(target = "pricePerHour", source = "pricePerHour")
     RoomDTO toDtoRoomName(Room room);
 
     @Named("userLogin")

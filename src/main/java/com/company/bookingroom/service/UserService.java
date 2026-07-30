@@ -1,12 +1,17 @@
 package com.company.bookingroom.service;
 
 import com.company.bookingroom.domain.Authority;
+import com.company.bookingroom.domain.Department;
 import com.company.bookingroom.domain.User;
 import com.company.bookingroom.repository.AuthorityRepository;
+import com.company.bookingroom.repository.DepartmentRepository;
 import com.company.bookingroom.repository.UserRepository;
 import com.company.bookingroom.security.SecurityUtils;
+import com.company.bookingroom.service.dto.AccountUpdateDTO;
 import com.company.bookingroom.service.dto.AdminUserDTO;
 import com.company.bookingroom.service.dto.UserDTO;
+import com.company.bookingroom.web.rest.errors.BadRequestAlertException;
+import com.company.bookingroom.web.rest.errors.EmailAlreadyUsedException;
 import java.util.*;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -27,24 +32,25 @@ import tech.jhipster.security.RandomUtil;
 public class UserService {
 
     private static final Logger LOG = LoggerFactory.getLogger(UserService.class);
+    private static final String ENTITY_NAME = "userManagement";
 
     private final UserRepository userRepository;
-
     private final PasswordEncoder passwordEncoder;
-
     private final AuthorityRepository authorityRepository;
-
+    private final DepartmentRepository departmentRepository;
     private final CacheManager cacheManager;
 
     public UserService(
         UserRepository userRepository,
         PasswordEncoder passwordEncoder,
         AuthorityRepository authorityRepository,
+        DepartmentRepository departmentRepository,
         CacheManager cacheManager
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.authorityRepository = authorityRepository;
+        this.departmentRepository = departmentRepository;
         this.cacheManager = cacheManager;
     }
 
@@ -56,8 +62,10 @@ public class UserService {
         if (userDTO.getEmail() != null) {
             user.setEmail(userDTO.getEmail().toLowerCase());
         }
-        String encryptedPassword = passwordEncoder.encode(RandomUtil.generatePassword());
-        user.setPassword(encryptedPassword);
+        String rawPassword = userDTO.getPassword() != null && !userDTO.getPassword().isBlank()
+            ? userDTO.getPassword()
+            : RandomUtil.generatePassword();
+        user.setPassword(passwordEncoder.encode(rawPassword));
         user.setActivated(true);
         if (userDTO.getAuthorities() != null) {
             Set<Authority> authorities = userDTO
@@ -69,18 +77,13 @@ public class UserService {
                 .collect(Collectors.toSet());
             user.setAuthorities(authorities);
         }
+        user.setDepartment(resolveDepartment(userDTO));
         userRepository.save(user);
         this.clearUserCaches(user);
         LOG.debug("Created Information for User: {}", user);
         return user;
     }
 
-    /**
-     * Update all information for a specific user, and return the modified user.
-     *
-     * @param userDTO user to update.
-     * @return updated user.
-     */
     public Optional<AdminUserDTO> updateUser(AdminUserDTO userDTO) {
         return Optional.of(userRepository.findById(userDTO.getId()))
             .filter(Optional::isPresent)
@@ -93,15 +96,21 @@ public class UserService {
                     user.setEmail(userDTO.getEmail().toLowerCase());
                 }
                 user.setActivated(userDTO.isActivated());
+                if (userDTO.getPassword() != null && !userDTO.getPassword().isBlank()) {
+                    user.setPassword(passwordEncoder.encode(userDTO.getPassword()));
+                }
                 Set<Authority> managedAuthorities = user.getAuthorities();
                 managedAuthorities.clear();
-                userDTO
-                    .getAuthorities()
-                    .stream()
-                    .map(authorityRepository::findById)
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .forEach(managedAuthorities::add);
+                if (userDTO.getAuthorities() != null) {
+                    userDTO
+                        .getAuthorities()
+                        .stream()
+                        .map(authorityRepository::findById)
+                        .filter(Optional::isPresent)
+                        .map(Optional::get)
+                        .forEach(managedAuthorities::add);
+                }
+                user.setDepartment(resolveDepartment(userDTO));
                 userRepository.save(user);
                 this.clearUserCaches(user);
                 LOG.debug("Changed Information for User: {}", user);
@@ -110,11 +119,16 @@ public class UserService {
             .map(AdminUserDTO::new);
     }
 
+    /**
+     * Soft-delete: deactivate the user.
+     */
     public void deleteUser(String login) {
         userRepository.findOneByLogin(login).ifPresent(user -> {
-            userRepository.delete(user);
             this.clearUserCaches(user);
-            LOG.debug("Deleted User: {}", user);
+            user.setActivated(false);
+            userRepository.save(user);
+            this.clearUserCaches(user);
+            LOG.debug("Deactivated User: {}", user);
         });
     }
 
@@ -138,13 +152,45 @@ public class UserService {
         return SecurityUtils.getCurrentUserLogin().flatMap(userRepository::findOneWithAuthoritiesByLogin);
     }
 
-    /**
-     * Gets a list of all the authorities.
-     * @return a list of all the authorities.
-     */
+    @Transactional(readOnly = true)
+    public Optional<AdminUserDTO> getAccount() {
+        return getUserWithAuthorities().map(AdminUserDTO::new);
+    }
+
+    public AdminUserDTO updateAccount(AccountUpdateDTO dto) {
+        User user = getUserWithAuthorities().orElseThrow(() ->
+            new BadRequestAlertException("Current user not found", ENTITY_NAME, "usernotfound")
+        );
+        this.clearUserCaches(user);
+        if (dto.getFullName() != null) {
+            user.setFullName(dto.getFullName());
+        }
+        if (dto.getEmail() != null) {
+            String email = dto.getEmail().toLowerCase();
+            Optional<User> existing = userRepository.findOneByEmailIgnoreCase(email);
+            if (existing.isPresent() && !existing.get().getId().equals(user.getId())) {
+                throw new EmailAlreadyUsedException();
+            }
+            user.setEmail(email);
+            user.setLogin(email);
+        }
+        userRepository.save(user);
+        this.clearUserCaches(user);
+        return new AdminUserDTO(user);
+    }
+
     @Transactional(readOnly = true)
     public List<String> getAuthorities() {
         return authorityRepository.findAll().stream().map(Authority::getName).toList();
+    }
+
+    private Department resolveDepartment(AdminUserDTO userDTO) {
+        if (userDTO.getDepartment() == null || userDTO.getDepartment().getId() == null) {
+            return null;
+        }
+        return departmentRepository
+            .findById(userDTO.getDepartment().getId())
+            .orElseThrow(() -> new BadRequestAlertException("Department not found", ENTITY_NAME, "departmentnotfound"));
     }
 
     private void clearUserCaches(User user) {

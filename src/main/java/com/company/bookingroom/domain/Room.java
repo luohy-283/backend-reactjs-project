@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import java.io.Serial;
 import java.io.Serializable;
+import java.math.BigDecimal;
 import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
 
@@ -38,6 +39,22 @@ public class Room implements Serializable {
     @NotNull
     @Column(name = "is_active", nullable = false)
     private Boolean isActive;
+
+    /**
+     * When null, room is public (visible to all departments).
+     * When set, only that department (and admins) can see/book it.
+     */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "locked_department_id")
+    private Department lockedDepartment;
+
+    /**
+     * Unit price in VND per hour.
+     */
+    @NotNull
+    @DecimalMin(value = "0.0", inclusive = true)
+    @Column(name = "price_per_hour", precision = 19, scale = 2, nullable = false)
+    private BigDecimal pricePerHour;
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
@@ -91,6 +108,22 @@ public class Room implements Serializable {
 
     public void setIsActive(Boolean isActive) {
         this.isActive = isActive;
+    }
+
+    public Department getLockedDepartment() {
+        return lockedDepartment;
+    }
+
+    public void setLockedDepartment(Department lockedDepartment) {
+        this.lockedDepartment = lockedDepartment;
+    }
+
+    public BigDecimal getPricePerHour() {
+        return pricePerHour;
+    }
+
+    public void setPricePerHour(BigDecimal pricePerHour) {
+        this.pricePerHour = pricePerHour;
     }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here

@@ -133,4 +133,170 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
         """
     )
     boolean existsActiveBookingsForRoom(@Param("roomId") Long roomId, @Param("now") Instant now);
+
+    @Query(
+        value = """
+            select booking from Booking booking
+            left join fetch booking.room r
+            left join fetch r.lockedDepartment
+            left join fetch booking.user
+            where (:isAdmin = true
+              or r.lockedDepartment is null
+              or (:departmentId is not null and r.lockedDepartment.id = :departmentId))
+            """,
+        countQuery = """
+            select count(booking) from Booking booking
+            left join booking.room r
+            where (:isAdmin = true
+              or r.lockedDepartment is null
+              or (:departmentId is not null and r.lockedDepartment.id = :departmentId))
+            """
+    )
+    Page<Booking> findAllVisible(
+        @Param("isAdmin") boolean isAdmin,
+        @Param("departmentId") Long departmentId,
+        Pageable pageable
+    );
+
+    @Query(
+        value = """
+            select booking from Booking booking
+            left join fetch booking.room r
+            left join fetch r.lockedDepartment
+            left join fetch booking.user
+            where booking.status = :status
+              and (:isAdmin = true
+                or r.lockedDepartment is null
+                or (:departmentId is not null and r.lockedDepartment.id = :departmentId))
+            """,
+        countQuery = """
+            select count(booking) from Booking booking
+            left join booking.room r
+            where booking.status = :status
+              and (:isAdmin = true
+                or r.lockedDepartment is null
+                or (:departmentId is not null and r.lockedDepartment.id = :departmentId))
+            """
+    )
+    Page<Booking> findVisibleByStatus(
+        @Param("status") BookingStatus status,
+        @Param("isAdmin") boolean isAdmin,
+        @Param("departmentId") Long departmentId,
+        Pageable pageable
+    );
+
+    @Query(
+        value = """
+            select booking from Booking booking
+            left join fetch booking.room r
+            left join fetch r.lockedDepartment
+            left join fetch booking.user
+            where booking.startTime < :dayEnd
+              and booking.endTime > :dayStart
+              and booking.status <> com.company.bookingroom.domain.enumeration.BookingStatus.CANCELLED
+              and (:isAdmin = true
+                or r.lockedDepartment is null
+                or (:departmentId is not null and r.lockedDepartment.id = :departmentId))
+            """,
+        countQuery = """
+            select count(booking) from Booking booking
+            left join booking.room r
+            where booking.startTime < :dayEnd
+              and booking.endTime > :dayStart
+              and booking.status <> com.company.bookingroom.domain.enumeration.BookingStatus.CANCELLED
+              and (:isAdmin = true
+                or r.lockedDepartment is null
+                or (:departmentId is not null and r.lockedDepartment.id = :departmentId))
+            """
+    )
+    Page<Booking> findVisibleActiveByDayRange(
+        @Param("dayStart") Instant dayStart,
+        @Param("dayEnd") Instant dayEnd,
+        @Param("isAdmin") boolean isAdmin,
+        @Param("departmentId") Long departmentId,
+        Pageable pageable
+    );
+
+    @Query(
+        value = """
+            select booking from Booking booking
+            left join fetch booking.room r
+            left join fetch r.lockedDepartment
+            left join fetch booking.user
+            where booking.status = :status
+              and booking.startTime < :dayEnd
+              and booking.endTime > :dayStart
+              and (:isAdmin = true
+                or r.lockedDepartment is null
+                or (:departmentId is not null and r.lockedDepartment.id = :departmentId))
+            """,
+        countQuery = """
+            select count(booking) from Booking booking
+            left join booking.room r
+            where booking.status = :status
+              and booking.startTime < :dayEnd
+              and booking.endTime > :dayStart
+              and (:isAdmin = true
+                or r.lockedDepartment is null
+                or (:departmentId is not null and r.lockedDepartment.id = :departmentId))
+            """
+    )
+    Page<Booking> findVisibleByDayRangeAndStatus(
+        @Param("dayStart") Instant dayStart,
+        @Param("dayEnd") Instant dayEnd,
+        @Param("status") BookingStatus status,
+        @Param("isAdmin") boolean isAdmin,
+        @Param("departmentId") Long departmentId,
+        Pageable pageable
+    );
+
+    @Query(
+        value = """
+            select booking from Booking booking
+            left join fetch booking.room
+            left join fetch booking.user
+            where booking.user.login = :login
+              and booking.status = com.company.bookingroom.domain.enumeration.BookingStatus.APPROVED
+            """,
+        countQuery = """
+            select count(booking) from Booking booking
+            where booking.user.login = :login
+              and booking.status = com.company.bookingroom.domain.enumeration.BookingStatus.APPROVED
+            """
+    )
+    Page<Booking> findApprovedInvoicesByLogin(@Param("login") String login, Pageable pageable);
+
+    @Query(
+        """
+        select booking from Booking booking
+        left join fetch booking.room
+        left join fetch booking.user
+        where booking.id = :id
+          and booking.user.login = :login
+          and booking.status = com.company.bookingroom.domain.enumeration.BookingStatus.APPROVED
+        """
+    )
+    Optional<Booking> findApprovedInvoiceByIdAndLogin(@Param("id") Long id, @Param("login") String login);
+
+    @Query(
+        """
+        select booking from Booking booking
+        left join fetch booking.room
+        where booking.status = com.company.bookingroom.domain.enumeration.BookingStatus.APPROVED
+          and booking.startTime >= :monthStart
+          and booking.startTime < :monthEnd
+        order by booking.startTime asc
+        """
+    )
+    List<Booking> findApprovedInMonth(@Param("monthStart") Instant monthStart, @Param("monthEnd") Instant monthEnd);
+
+    @Query(
+        """
+        select count(booking) from Booking booking
+        where booking.status = com.company.bookingroom.domain.enumeration.BookingStatus.CANCELLED
+          and booking.startTime >= :monthStart
+          and booking.startTime < :monthEnd
+        """
+    )
+    long countCancelledInMonth(@Param("monthStart") Instant monthStart, @Param("monthEnd") Instant monthEnd);
 }

@@ -2,6 +2,7 @@ package com.company.bookingroom.service.dto;
 
 import jakarta.validation.constraints.*;
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.util.Objects;
 
 /**
@@ -21,6 +22,12 @@ public class RoomDTO implements Serializable {
     private Integer capacity;
 
     private Boolean isActive;
+
+    private DepartmentDTO lockedDepartment;
+
+    @NotNull
+    @DecimalMin(value = "0.0", inclusive = true)
+    private BigDecimal pricePerHour;
 
     public Long getId() {
         return id;
@@ -54,6 +61,22 @@ public class RoomDTO implements Serializable {
         this.isActive = isActive;
     }
 
+    public DepartmentDTO getLockedDepartment() {
+        return lockedDepartment;
+    }
+
+    public void setLockedDepartment(DepartmentDTO lockedDepartment) {
+        this.lockedDepartment = lockedDepartment;
+    }
+
+    public BigDecimal getPricePerHour() {
+        return pricePerHour;
+    }
+
+    public void setPricePerHour(BigDecimal pricePerHour) {
+        this.pricePerHour = pricePerHour;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -83,6 +106,8 @@ public class RoomDTO implements Serializable {
             ", name='" + getName() + "'" +
             ", capacity=" + getCapacity() +
             ", isActive='" + getIsActive() + "'" +
+            ", lockedDepartment=" + getLockedDepartment() +
+            ", pricePerHour=" + getPricePerHour() +
             "}";
     }
 }

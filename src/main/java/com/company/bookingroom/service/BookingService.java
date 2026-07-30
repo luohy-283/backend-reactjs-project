@@ -12,6 +12,7 @@ import com.company.bookingroom.security.SecurityUtils;
 import com.company.bookingroom.service.dto.BookingDTO;
 import com.company.bookingroom.service.mapper.BookingMapper;
 import com.company.bookingroom.web.rest.errors.BadRequestAlertException;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -75,6 +76,14 @@ public class BookingService {
             .findById(roomId)
             .orElseThrow(() -> new BadRequestAlertException("Room not found", ENTITY_NAME, "roomnotfound"));
 
+        if (!RoomAccessRules.canAccess(room, currentUser)) {
+            throw new BadRequestAlertException(
+                "Bạn không có quyền đặt phòng này",
+                ENTITY_NAME,
+                "roomforbidden"
+            );
+        }
+
         BookingStatus status = SecurityUtils.hasCurrentUserThisAuthority(AuthoritiesConstants.ADMIN)
             ? BookingStatus.APPROVED
             : BookingStatus.PENDING;
@@ -86,6 +95,10 @@ public class BookingService {
         booking.setStatus(status);
         booking.setRoom(room);
         booking.setUser(currentUser);
+
+        BigDecimal pricePerHour = room.getPricePerHour() != null ? room.getPricePerHour() : BigDecimal.ZERO;
+        booking.setPricePerHour(pricePerHour);
+        booking.setAmount(BookingPricing.calculateAmount(pricePerHour, bookingDTO.getStartTime(), bookingDTO.getEndTime()));
 
         booking = bookingRepository.saveAndFlush(booking);
         return bookingMapper.toDto(
@@ -119,21 +132,43 @@ public class BookingService {
     public Page<BookingDTO> findAll(Pageable pageable, LocalDate date, BookingStatus status) {
         LOG.debug("Request to get Bookings pageable={}, date={}, status={}", pageable, date, status);
         Pageable effectivePageable = withDefaultSort(pageable);
+        boolean isAdmin = RoomAccessRules.isAdmin();
+        Long departmentId = null;
+        if (!isAdmin) {
+            User current = requireCurrentUser();
+            departmentId = current.getDepartment() != null ? current.getDepartment().getId() : null;
+        }
         Page<Booking> page;
         if (date == null && status == null) {
-            page = bookingRepository.findAllWithEagerRelationships(effectivePageable);
+            page = bookingRepository.findAllVisible(isAdmin, departmentId, effectivePageable);
         } else if (date == null) {
-            page = bookingRepository.findAllByStatus(status, effectivePageable);
+            page = bookingRepository.findVisibleByStatus(status, isAdmin, departmentId, effectivePageable);
         } else {
             Instant dayStart = date.atStartOfDay(APP_ZONE).toInstant();
             Instant dayEnd = date.plusDays(1).atStartOfDay(APP_ZONE).toInstant();
             if (status == null) {
-                page = bookingRepository.findActiveByDayRange(dayStart, dayEnd, effectivePageable);
+                page = bookingRepository.findVisibleActiveByDayRange(dayStart, dayEnd, isAdmin, departmentId, effectivePageable);
             } else {
-                page = bookingRepository.findByDayRangeAndStatus(dayStart, dayEnd, status, effectivePageable);
+                page = bookingRepository.findVisibleByDayRangeAndStatus(
+                    dayStart,
+                    dayEnd,
+                    status,
+                    isAdmin,
+                    departmentId,
+                    effectivePageable
+                );
             }
         }
         return page.map(bookingMapper::toDto);
+    }
+
+    private User requireCurrentUser() {
+        String login = SecurityUtils.getCurrentUserLogin().orElseThrow(() ->
+            new BadRequestAlertException("Current user not found in token", ENTITY_NAME, "usernotfound")
+        );
+        return userRepository
+            .findOneByLogin(login)
+            .orElseThrow(() -> new BadRequestAlertException("Current user not found", ENTITY_NAME, "usernotfound"));
     }
 
     public Page<BookingDTO> findAllWithEagerRelationships(Pageable pageable) {

@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Wipe non-user business data and reseed enough rooms/bookings for pagination + revenue demos.
+      Keeps: jhi_user, jhi_authority, jhi_user_authority, department (users reference them).
+      Vietnamese strings are UTF-8. If applying CDATA via psql manually, use:
+        SET client_encoding TO 'UTF8';
+      (or PGCLIENTENCODING=UTF8) — otherwise names become mojibake (PhÃ²ng…).
+    -->
+    <changeSet id="20260730190000-reseed-demo-data" author="bookingroom">
+        <sql splitStatements="false"><![CDATA[
+-- 1) Clear dependent rows (keep seed admin/user + departments)
+DELETE FROM booking;
+DELETE FROM department_change_request;
+DELETE FROM jhi_user_authority WHERE user_id > 2;
+DELETE FROM jhi_user WHERE id > 2;
+DELETE FROM room;
+
+-- 2) Rooms: 28 rows (pageSize=10 → 3 pages). Mix public / locked / inactive.
+INSERT INTO room (id, name, capacity, is_active, locked_department_id, price_per_hour) VALUES
+  (1,  'Phòng Coda',           8,  TRUE,  1,    100000),
+  (2,  'Phòng Tầng 3',        12,  TRUE,  NULL, 150000),
+  (3,  'Phòng Họp Lớn',       20,  TRUE,  NULL, 250000),
+  (4,  'Phòng Alpha',          6,  TRUE,  NULL,  80000),
+  (5,  'Phòng Beta',          10,  TRUE,  2,    120000),
+  (6,  'Phòng Gamma',         14,  TRUE,  NULL, 180000),
+  (7,  'Phòng Delta',          8,  TRUE,  3,    110000),
+  (8,  'Phòng Epsilon',       16,  TRUE,  NULL, 200000),
+  (9,  'Phòng Zeta',           4,  TRUE,  NULL,  60000),
+  (10, 'Phòng Eta',           18,  TRUE,  1,    220000),
+  (11, 'Phòng Theta',         10,  TRUE,  NULL, 130000),
+  (12, 'Phòng Iota',           8,  TRUE,  NULL,  90000),
+  (13, 'Phòng Kappa',         12,  TRUE,  2,    160000),
+  (14, 'Phòng Lambda',        24,  TRUE,  NULL, 300000),
+  (15, 'Phòng Mu',             6,  TRUE,  NULL,  70000),
+  (16, 'Phòng Nu',            10,  TRUE,  3,    140000),
+  (17, 'Phòng Xi',            14,  TRUE,  NULL, 170000),
+  (18, 'Phòng Omicron',        8,  TRUE,  NULL, 100000),
+  (19, 'Phòng Pi',            20,  TRUE,  1,    240000),
+  (20, 'Phòng Rho',            6,  TRUE,  NULL,  75000),
+  (21, 'Phòng Sigma',         12, FALSE, NULL, 150000),
+  (22, 'Phòng Tau',            8, FALSE, 2,    110000),
+  (23, 'Phòng Upsilon',       16,  TRUE,  NULL, 190000),
+  (24, 'Phòng Phi',           10,  TRUE,  NULL, 125000),
+  (25, 'Phòng Chi',            8,  TRUE,  3,     95000),
+  (26, 'Phòng Psi',           14,  TRUE,  NULL, 175000),
+  (27, 'Phòng Omega',         30,  TRUE,  NULL, 350000),
+  (28, 'Phòng Studio',         5,  TRUE,  1,     85000);
+
+-- 2b) Extra users for admin user-list pagination (password = 123456, same hash as seed users)
+INSERT INTO jhi_user (id, login, password_hash, full_name, email, activated, created_by, created_date, last_modified_by, last_modified_date, department_id)
+SELECT
+  u AS id,
+  'user' || u || '@company.com',
+  '$2a$10$CDmKhVpPz7.5I4Mrm6sVreAINrmDhCJrCL3ao2FxMxUCBRVZbwglO',
+  'Nhân viên ' || u,
+  'user' || u || '@company.com',
+  TRUE,
+  'system',
+  NOW(),
+  'system',
+  NOW(),
+  ((u - 1) % 3) + 1
+FROM generate_series(3, 22) AS u;
+
+INSERT INTO jhi_user_authority (user_id, authority_name)
+SELECT u, 'ROLE_USER'
+FROM generate_series(3, 22) AS u;
+
+-- 3) Bookings: ~70 rows across July 2026 + near future (pageSize=10 → 7 pages).
+-- Avoid same-room overlaps; rotate rooms; mix PENDING / APPROVED / CANCELLED.
+-- amount = price_per_hour * hours (1h or 2h slots).
+INSERT INTO booking (id, title, start_time, end_time, status, room_id, user_id, price_per_hour, amount)
+SELECT
+  gs AS id,
+  CASE (gs % 8)
+    WHEN 0 THEN 'Daily standup'
+    WHEN 1 THEN 'Sprint planning'
+    WHEN 2 THEN 'Client review'
+    WHEN 3 THEN 'Design sync'
+    WHEN 4 THEN 'Interview'
+    WHEN 5 THEN 'Training'
+    WHEN 6 THEN 'Retrospective'
+    ELSE 'Team sync'
+  END || ' #' || gs,
+  slot_start,
+  slot_end,
+  CASE
+    WHEN gs % 7 = 0 THEN 'CANCELLED'
+    WHEN gs % 5 = 0 THEN 'PENDING'
+    ELSE 'APPROVED'
+  END,
+  room_id,
+  CASE WHEN gs % 11 = 0 THEN 1 ELSE ((gs % 20) + 2) END,
+  price,
+  ROUND(price * EXTRACT(EPOCH FROM (slot_end - slot_start)) / 3600.0, 2)
+FROM (
+  SELECT
+    gs,
+    -- room 1..20 cycling (skip inactive 21-22 for most bookings)
+    ((gs - 1) % 20) + 1 AS room_id,
+    -- one booking/day from 2026-07-01; stagger by room; duration 1h or 2h
+    (
+      TIMESTAMP '2026-07-01 01:00:00'
+      + ((gs - 1) * INTERVAL '1 day')
+      + ((((gs - 1) % 20) * 30) * INTERVAL '1 minute')
+    ) AS slot_start,
+    (
+      TIMESTAMP '2026-07-01 01:00:00'
+      + ((gs - 1) * INTERVAL '1 day')
+      + ((((gs - 1) % 20) * 30) * INTERVAL '1 minute')
+      + ((CASE WHEN gs % 3 = 0 THEN 2 ELSE 1 END) * INTERVAL '1 hour')
+    ) AS slot_end,
+    CASE ((gs - 1) % 20) + 1
+      WHEN 1 THEN 100000::numeric
+      WHEN 2 THEN 150000::numeric
+      WHEN 3 THEN 250000::numeric
+      WHEN 4 THEN 80000::numeric
+      WHEN 5 THEN 120000::numeric
+      WHEN 6 THEN 180000::numeric
+      WHEN 7 THEN 110000::numeric
+      WHEN 8 THEN 200000::numeric
+      WHEN 9 THEN 60000::numeric
+      WHEN 10 THEN 220000::numeric
+      WHEN 11 THEN 130000::numeric
+      WHEN 12 THEN 90000::numeric
+      WHEN 13 THEN 160000::numeric
+      WHEN 14 THEN 300000::numeric
+      WHEN 15 THEN 70000::numeric
+      WHEN 16 THEN 140000::numeric
+      WHEN 17 THEN 170000::numeric
+      WHEN 18 THEN 100000::numeric
+      WHEN 19 THEN 240000::numeric
+      ELSE 75000::numeric
+    END AS price
+  FROM generate_series(1, 70) AS gs
+) s;
+
+-- A few department-change requests for admin UI
+INSERT INTO department_change_request (
+  id, user_id, requested_department_id, status,
+  reviewed_by_id, reviewed_date, created_by, created_date, last_modified_by, last_modified_date
+) VALUES
+  (1, 2, 2, 'PENDING',  NULL, NULL, 'user@company.com', NOW(), 'user@company.com', NOW()),
+  (2, 2, 3, 'APPROVED', 1,    NOW() - INTERVAL '2 day', 'user@company.com', NOW() - INTERVAL '3 day', 'admin@company.com', NOW() - INTERVAL '2 day'),
+  (3, 2, 1, 'REJECTED', 1,    NOW() - INTERVAL '1 day', 'user@company.com', NOW() - INTERVAL '2 day', 'admin@company.com', NOW() - INTERVAL '1 day');
+
+-- Keep sequence ahead of seeded ids
+SELECT setval(
+  'sequence_generator',
+  GREATEST(
+    (SELECT COALESCE(MAX(id), 0) FROM room),
+    (SELECT COALESCE(MAX(id), 0) FROM booking),
+    (SELECT COALESCE(MAX(id), 0) FROM department),
+    (SELECT COALESCE(MAX(id), 0) FROM department_change_request),
+    (SELECT COALESCE(MAX(id), 0) FROM jhi_user)
+  )
+);
+        ]]></sql>
+    </changeSet>
+</databaseChangeLog>

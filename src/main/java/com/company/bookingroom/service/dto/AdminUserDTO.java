@@ -3,6 +3,7 @@ package com.company.bookingroom.service.dto;
 import com.company.bookingroom.config.Constants;
 import com.company.bookingroom.domain.Authority;
 import com.company.bookingroom.domain.User;
+import com.company.bookingroom.service.dto.DepartmentDTO;
 import jakarta.validation.constraints.*;
 import java.io.Serial;
 import java.io.Serializable;
@@ -44,6 +45,12 @@ public class AdminUserDTO implements Serializable {
 
     private Set<String> authorities;
 
+    /** Optional on create; ignored on update unless provided. */
+    @Size(min = 4, max = 100)
+    private String password;
+
+    private DepartmentDTO department;
+
     public AdminUserDTO() {
         // Empty constructor needed for Jackson.
     }
@@ -59,6 +66,12 @@ public class AdminUserDTO implements Serializable {
         this.lastModifiedBy = user.getLastModifiedBy();
         this.lastModifiedDate = user.getLastModifiedDate();
         this.authorities = user.getAuthorities().stream().map(Authority::getName).collect(Collectors.toSet());
+        if (user.getDepartment() != null) {
+            this.department = new DepartmentDTO();
+            this.department.setId(user.getDepartment().getId());
+            this.department.setCode(user.getDepartment().getCode());
+            this.department.setName(user.getDepartment().getName());
+        }
     }
 
     public Long getId() {
@@ -141,6 +154,22 @@ public class AdminUserDTO implements Serializable {
         this.authorities = authorities;
     }
 
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public DepartmentDTO getDepartment() {
+        return department;
+    }
+
+    public void setDepartment(DepartmentDTO department) {
+        this.department = department;
+    }
+
     // prettier-ignore
     @Override
     public String toString() {
@@ -149,6 +178,7 @@ public class AdminUserDTO implements Serializable {
             ", fullName='" + fullName + '\'' +
             ", email='" + email + '\'' +
             ", activated=" + activated +
+            ", department=" + department +
             ", createdBy=" + createdBy +
             ", createdDate=" + createdDate +
             ", lastModifiedBy='" + lastModifiedBy + '\'' +

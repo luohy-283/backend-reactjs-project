@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import java.io.Serial;
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.time.Instant;
 import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
@@ -52,6 +53,20 @@ public class Booking implements Serializable {
     @ManyToOne(optional = false)
     @NotNull
     private User user;
+
+    /**
+     * Snapshot of room unit price (VND/hour) at booking time.
+     */
+    @NotNull
+    @Column(name = "price_per_hour", precision = 19, scale = 2, nullable = false)
+    private BigDecimal pricePerHour;
+
+    /**
+     * Total charge snapshot: pricePerHour × billable hours (30-min blocks, VND).
+     */
+    @NotNull
+    @Column(name = "amount", precision = 19, scale = 2, nullable = false)
+    private BigDecimal amount;
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
@@ -144,6 +159,22 @@ public class Booking implements Serializable {
     public Booking user(User user) {
         this.setUser(user);
         return this;
+    }
+
+    public BigDecimal getPricePerHour() {
+        return pricePerHour;
+    }
+
+    public void setPricePerHour(BigDecimal pricePerHour) {
+        this.pricePerHour = pricePerHour;
+    }
+
+    public BigDecimal getAmount() {
+        return amount;
+    }
+
+    public void setAmount(BigDecimal amount) {
+        this.amount = amount;
     }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here

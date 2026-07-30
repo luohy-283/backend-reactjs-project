@@ -3,6 +3,7 @@ package com.company.bookingroom.web.rest;
 import com.company.bookingroom.domain.User;
 import com.company.bookingroom.repository.UserRepository;
 import com.company.bookingroom.security.AuthoritiesConstants;
+import com.company.bookingroom.service.dto.DepartmentDTO;
 import com.company.bookingroom.web.rest.vm.AuthLoginResponse;
 import com.company.bookingroom.web.rest.vm.AuthLoginVM;
 import com.company.bookingroom.web.rest.vm.AuthUserVM;
@@ -53,7 +54,14 @@ public class AuthController {
             .orElseThrow(() -> new IllegalStateException("Authenticated user not found"));
 
         String role = toFrontendRole(user);
-        AuthUserVM userVM = new AuthUserVM(user.getId(), user.getEmail(), user.getFullName(), role);
+        DepartmentDTO departmentDTO = null;
+        if (user.getDepartment() != null) {
+            departmentDTO = new DepartmentDTO();
+            departmentDTO.setId(user.getDepartment().getId());
+            departmentDTO.setCode(user.getDepartment().getCode());
+            departmentDTO.setName(user.getDepartment().getName());
+        }
+        AuthUserVM userVM = new AuthUserVM(user.getId(), user.getEmail(), user.getFullName(), role, departmentDTO);
         AuthLoginResponse body = new AuthLoginResponse(jwt, userVM);
 
         HttpHeaders headers = new HttpHeaders();

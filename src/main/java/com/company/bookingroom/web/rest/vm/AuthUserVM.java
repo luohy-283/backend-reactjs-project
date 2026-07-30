@@ -1,5 +1,7 @@
 package com.company.bookingroom.web.rest.vm;
 
+import com.company.bookingroom.service.dto.DepartmentDTO;
+
 /**
  * Simplified user payload for the frontend auth contract.
  */
@@ -9,12 +11,14 @@ public class AuthUserVM {
     private String email;
     private String fullName;
     private String role;
+    private DepartmentDTO department;
 
-    public AuthUserVM(Long id, String email, String fullName, String role) {
+    public AuthUserVM(Long id, String email, String fullName, String role, DepartmentDTO department) {
         this.id = id;
         this.email = email;
         this.fullName = fullName;
         this.role = role;
+        this.department = department;
     }
 
     public Long getId() {
@@ -47,5 +51,13 @@ public class AuthUserVM {
 
     public void setRole(String role) {
         this.role = role;
+    }
+
+    public DepartmentDTO getDepartment() {
+        return department;
+    }
+
+    public void setDepartment(DepartmentDTO department) {
+        this.department = department;
     }
 }

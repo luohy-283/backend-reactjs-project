@@ -19,6 +19,11 @@
     <!-- jhipster-needle-liquibase-add-constraints-changelog - JHipster will add liquibase constraints changelogs here -->
     <include file="config/liquibase/changelog/20260725010000_seed_rooms.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260730120000_slim_jhi_user.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260730160000_department_and_lock.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260730180000_room_pricing.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260730190000_reseed_demo_data.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260730193000_fix_vietnamese_mojibake.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>
+
 

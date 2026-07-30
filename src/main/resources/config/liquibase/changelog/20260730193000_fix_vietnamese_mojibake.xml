@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Repair room/user names double-encoded as UTF-8-as-Latin-1 (classic mojibake).
+      Seed XML was already correct UTF-8; corruption came from client encoding when applying SQL.
+      Idempotent: safe if names are already correct.
+    -->
+    <changeSet id="20260730193000-fix-vietnamese-mojibake" author="bookingroom">
+        <sql splitStatements="false"><![CDATA[
+UPDATE room SET name = 'Phòng Coda' WHERE id = 1;
+UPDATE room SET name = 'Phòng Tầng 3' WHERE id = 2;
+UPDATE room SET name = 'Phòng Họp Lớn' WHERE id = 3;
+UPDATE room SET name = 'Phòng Alpha' WHERE id = 4;
+UPDATE room SET name = 'Phòng Beta' WHERE id = 5;
+UPDATE room SET name = 'Phòng Gamma' WHERE id = 6;
+UPDATE room SET name = 'Phòng Delta' WHERE id = 7;
+UPDATE room SET name = 'Phòng Epsilon' WHERE id = 8;
+UPDATE room SET name = 'Phòng Zeta' WHERE id = 9;
+UPDATE room SET name = 'Phòng Eta' WHERE id = 10;
+UPDATE room SET name = 'Phòng Theta' WHERE id = 11;
+UPDATE room SET name = 'Phòng Iota' WHERE id = 12;
+UPDATE room SET name = 'Phòng Kappa' WHERE id = 13;
+UPDATE room SET name = 'Phòng Lambda' WHERE id = 14;
+UPDATE room SET name = 'Phòng Mu' WHERE id = 15;
+UPDATE room SET name = 'Phòng Nu' WHERE id = 16;
+UPDATE room SET name = 'Phòng Xi' WHERE id = 17;
+UPDATE room SET name = 'Phòng Omicron' WHERE id = 18;
+UPDATE room SET name = 'Phòng Pi' WHERE id = 19;
+UPDATE room SET name = 'Phòng Rho' WHERE id = 20;
+UPDATE room SET name = 'Phòng Sigma' WHERE id = 21;
+UPDATE room SET name = 'Phòng Tau' WHERE id = 22;
+UPDATE room SET name = 'Phòng Upsilon' WHERE id = 23;
+UPDATE room SET name = 'Phòng Phi' WHERE id = 24;
+UPDATE room SET name = 'Phòng Chi' WHERE id = 25;
+UPDATE room SET name = 'Phòng Psi' WHERE id = 26;
+UPDATE room SET name = 'Phòng Omega' WHERE id = 27;
+UPDATE room SET name = 'Phòng Studio' WHERE id = 28;
+
+UPDATE jhi_user
+SET full_name = 'Nhân viên ' || id::text
+WHERE id BETWEEN 3 AND 22;
+
+UPDATE department SET name = 'Công nghệ thông tin' WHERE id = 1 AND code = 'IT';
+UPDATE department SET name = 'Nhân sự' WHERE id = 2 AND code = 'HR';
+UPDATE department SET name = 'Kinh doanh' WHERE id = 3 AND code = 'SALES';
+        ]]></sql>
+    </changeSet>
+</databaseChangeLog>

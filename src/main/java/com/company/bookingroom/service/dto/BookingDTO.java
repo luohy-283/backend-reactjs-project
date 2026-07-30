@@ -3,6 +3,7 @@ package com.company.bookingroom.service.dto;
 import com.company.bookingroom.domain.enumeration.BookingStatus;
 import jakarta.validation.constraints.*;
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Objects;
 
@@ -30,6 +31,10 @@ public class BookingDTO implements Serializable {
     private RoomDTO room;
 
     private UserDTO user;
+
+    private BigDecimal pricePerHour;
+
+    private BigDecimal amount;
 
     public Long getId() {
         return id;
@@ -85,6 +90,22 @@ public class BookingDTO implements Serializable {
 
     public void setUser(UserDTO user) {
         this.user = user;
+    }
+
+    public BigDecimal getPricePerHour() {
+        return pricePerHour;
+    }
+
+    public void setPricePerHour(BigDecimal pricePerHour) {
+        this.pricePerHour = pricePerHour;
+    }
+
+    public BigDecimal getAmount() {
+        return amount;
+    }
+
+    public void setAmount(BigDecimal amount) {
+        this.amount = amount;
     }
 
     @Override
