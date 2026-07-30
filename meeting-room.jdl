@@ -1,0 +1,29 @@
+enum BookingStatus {
+  PENDING,
+  APPROVED,
+  CANCELLED
+}
+
+@dto(mapstruct)
+@service(serviceClass)
+@filter
+entity Room {
+  name String required maxlength(100)
+  capacity Integer required min(1)
+  isActive Boolean required
+}
+
+@dto(mapstruct)
+@service(serviceClass)
+@filter
+entity Booking {
+  title String required maxlength(200)
+  startTime Instant required
+  endTime Instant required
+  status BookingStatus required
+}
+
+relationship ManyToOne {
+  Booking{room(name) required} to Room
+  Booking{user(login) required} to User with builtInEntity
+}

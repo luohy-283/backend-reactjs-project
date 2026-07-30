@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20260730120000-1" author="bookingroom">
+        <addColumn tableName="jhi_user">
+            <column name="full_name" type="varchar(100)"/>
+        </addColumn>
+        <sql>
+            UPDATE jhi_user
+            SET full_name = TRIM(CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')))
+            WHERE full_name IS NULL
+        </sql>
+        <sql>
+            UPDATE jhi_user
+            SET login = LOWER(email)
+            WHERE email IS NOT NULL
+        </sql>
+        <dropColumn tableName="jhi_user" columnName="first_name"/>
+        <dropColumn tableName="jhi_user" columnName="last_name"/>
+        <dropColumn tableName="jhi_user" columnName="image_url"/>
+        <dropColumn tableName="jhi_user" columnName="lang_key"/>
+        <dropColumn tableName="jhi_user" columnName="activation_key"/>
+        <dropColumn tableName="jhi_user" columnName="reset_key"/>
+        <dropColumn tableName="jhi_user" columnName="reset_date"/>
+    </changeSet>
+</databaseChangeLog>

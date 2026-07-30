@@ -1,0 +1,31 @@
+{
+  "annotations": {
+    "changelogDate": "20260724175852",
+    "dto": "mapstruct",
+    "filter": true,
+    "service": "serviceClass"
+  },
+  "applications": ["*"],
+  "fields": [
+    {
+      "fieldName": "name",
+      "fieldType": "String",
+      "fieldValidateRules": ["required", "maxlength"],
+      "fieldValidateRulesMaxlength": "100"
+    },
+    {
+      "fieldName": "capacity",
+      "fieldType": "Integer",
+      "fieldValidateRules": ["required", "min"],
+      "fieldValidateRulesMin": "1"
+    },
+    {
+      "fieldName": "isActive",
+      "fieldType": "Boolean",
+      "fieldValidateRules": ["required"]
+    }
+  ],
+  "name": "Room",
+  "relationships": [],
+  "searchEngine": "no"
+}
