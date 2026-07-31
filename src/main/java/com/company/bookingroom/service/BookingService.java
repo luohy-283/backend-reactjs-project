@@ -21,9 +21,7 @@ import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -152,7 +150,6 @@ public class BookingService {
             search,
             upcomingOnly
         );
-        Pageable effectivePageable = withDefaultSort(pageable);
         boolean isAdmin = RoomAccessRules.isAdmin();
         Long departmentId = null;
         if (!isAdmin) {
@@ -176,7 +173,7 @@ public class BookingService {
             search,
             isAdmin,
             departmentId,
-            effectivePageable
+            pageable
         );
         return page.map(bookingMapper::toDto);
     }
@@ -211,14 +208,7 @@ public class BookingService {
     }
 
     public Page<BookingDTO> findAllWithEagerRelationships(Pageable pageable) {
-        return bookingRepository.findAllWithEagerRelationships(withDefaultSort(pageable)).map(bookingMapper::toDto);
-    }
-
-    private static Pageable withDefaultSort(Pageable pageable) {
-        if (pageable.getSort().isSorted()) {
-            return pageable;
-        }
-        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(Sort.Direction.DESC, "startTime"));
+        return bookingRepository.findAllWithEagerRelationships(pageable).map(bookingMapper::toDto);
     }
 
     @Transactional(readOnly = true)

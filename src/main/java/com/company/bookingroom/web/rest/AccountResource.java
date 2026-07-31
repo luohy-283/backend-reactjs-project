@@ -14,7 +14,6 @@ import java.util.Optional;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -69,7 +68,7 @@ public class AccountResource {
     @GetMapping("/invoices")
     public Page<BookingDTO> getMyInvoices(
         @RequestParam(required = false) String q,
-        @ParameterObject @PageableDefault(size = 20, sort = "startTime", direction = Sort.Direction.DESC) Pageable pageable
+        @ParameterObject @PageableDefault(size = 20) Pageable pageable
     ) {
         return invoiceRevenueService.findMyInvoices(q, pageable);
     }

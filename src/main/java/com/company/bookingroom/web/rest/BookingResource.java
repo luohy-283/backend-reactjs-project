@@ -18,7 +18,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -140,14 +139,14 @@ public class BookingResource {
 
     /**
      * {@code GET  /api/bookings} : get a page of bookings.
-     * Query: {@code page}, {@code size}, {@code sort} (default {@code startTime,desc}),
+     * Query: {@code page}, {@code size}, optional {@code sort},
      * optional {@code date}, {@code status}, {@code q} (title/room/user), {@code upcoming=true}
      * (APPROVED with startTime after now).
      * Example: {@code /api/bookings?page=0&size=10&sort=startTime,desc&q=standup&upcoming=true}
      */
     @GetMapping("")
     public Page<BookingDTO> getAllBookings(
-        @PageableDefault(size = 20, sort = "startTime", direction = Sort.Direction.DESC)
+        @PageableDefault(size = 20)
         @org.springdoc.core.annotations.ParameterObject
         Pageable pageable,
         @RequestParam(name = "date", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,

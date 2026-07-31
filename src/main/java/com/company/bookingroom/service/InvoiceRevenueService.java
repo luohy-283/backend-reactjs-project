@@ -216,8 +216,7 @@ public class InvoiceRevenueService {
 
     private static Comparator<RevenueByRoomDTO> byRoomComparator(Sort sort) {
         if (sort == null || sort.isUnsorted()) {
-            return Comparator.comparing(RevenueByRoomDTO::getAmount, Comparator.nullsLast(Comparator.naturalOrder()))
-                .reversed();
+            return Comparator.comparing(RevenueByRoomDTO::getRoomId, Comparator.nullsLast(Comparator.naturalOrder()));
         }
         Comparator<RevenueByRoomDTO> comparator = null;
         for (Sort.Order order : sort) {
@@ -236,7 +235,7 @@ public class InvoiceRevenueService {
                     Comparator.nullsLast(Comparator.naturalOrder())
                 );
                 default -> Comparator.comparing(
-                    RevenueByRoomDTO::getAmount,
+                    RevenueByRoomDTO::getRoomId,
                     Comparator.nullsLast(Comparator.naturalOrder())
                 );
             };
@@ -247,8 +246,7 @@ public class InvoiceRevenueService {
         }
         return comparator != null
             ? comparator
-            : Comparator.comparing(RevenueByRoomDTO::getAmount, Comparator.nullsLast(Comparator.naturalOrder()))
-                .reversed();
+            : Comparator.comparing(RevenueByRoomDTO::getRoomId, Comparator.nullsLast(Comparator.naturalOrder()));
     }
 
     private static String normalizeSearch(String q) {

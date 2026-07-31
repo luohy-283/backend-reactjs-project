@@ -8,7 +8,6 @@ import java.nio.charset.StandardCharsets;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -39,7 +38,7 @@ public class RevenueResource {
     public Page<RevenueByRoomDTO> getMonthlyRevenueByRoom(
         @RequestParam(required = false) String yearMonth,
         @RequestParam(required = false) String q,
-        @ParameterObject @PageableDefault(size = 20, sort = "amount", direction = Sort.Direction.DESC) Pageable pageable
+        @ParameterObject @PageableDefault(size = 20) Pageable pageable
     ) {
         return invoiceRevenueService.getMonthlyRevenueByRoom(yearMonth, q, pageable);
     }
