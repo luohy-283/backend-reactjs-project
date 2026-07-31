@@ -48,7 +48,10 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
         select case when count(booking) > 0 then true else false end
         from Booking booking
         where booking.room.id = :roomId
-          and booking.status <> com.company.bookingroom.domain.enumeration.BookingStatus.CANCELLED
+          and booking.status in (
+            com.company.bookingroom.domain.enumeration.BookingStatus.PENDING,
+            com.company.bookingroom.domain.enumeration.BookingStatus.APPROVED
+          )
           and booking.startTime < :endTime
           and booking.endTime > :startTime
           and (:excludeId is null or booking.id <> :excludeId)
@@ -62,7 +65,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     );
 
     /**
-     * Active (non-CANCELLED) bookings overlapping a local calendar day range.
+     * Active (PENDING / APPROVED) bookings overlapping a local calendar day range.
      */
     @Query(
         value = """
@@ -71,13 +74,19 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
             left join fetch booking.user
             where booking.startTime < :dayEnd
               and booking.endTime > :dayStart
-              and booking.status <> com.company.bookingroom.domain.enumeration.BookingStatus.CANCELLED
+              and booking.status in (
+                com.company.bookingroom.domain.enumeration.BookingStatus.PENDING,
+                com.company.bookingroom.domain.enumeration.BookingStatus.APPROVED
+              )
             """,
         countQuery = """
             select count(booking) from Booking booking
             where booking.startTime < :dayEnd
               and booking.endTime > :dayStart
-              and booking.status <> com.company.bookingroom.domain.enumeration.BookingStatus.CANCELLED
+              and booking.status in (
+                com.company.bookingroom.domain.enumeration.BookingStatus.PENDING,
+                com.company.bookingroom.domain.enumeration.BookingStatus.APPROVED
+              )
             """
     )
     Page<Booking> findActiveByDayRange(
@@ -134,84 +143,72 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     )
     boolean existsActiveBookingsForRoom(@Param("roomId") Long roomId, @Param("now") Instant now);
 
+    /**
+     * Visible bookings with optional status, calendar day, upcoming (APPROVED + startTime &gt; now),
+     * and text search on title / room name / user login·email·fullName.
+     */
     @Query(
         value = """
             select booking from Booking booking
             left join fetch booking.room r
             left join fetch r.lockedDepartment
-            left join fetch booking.user
+            left join fetch booking.user u
             where (:isAdmin = true
               or r.lockedDepartment is null
               or (:departmentId is not null and r.lockedDepartment.id = :departmentId))
+              and (:status is null or booking.status = :status)
+              and (:hasDate = false or (booking.startTime < :dayEnd and booking.endTime > :dayStart))
+              and (:activeOnly = false or booking.status in (
+                com.company.bookingroom.domain.enumeration.BookingStatus.PENDING,
+                com.company.bookingroom.domain.enumeration.BookingStatus.APPROVED
+              ))
+              and (:upcoming = false or (
+                booking.status = com.company.bookingroom.domain.enumeration.BookingStatus.APPROVED
+                and booking.startTime > :now
+              ))
+              and (:q is null or (
+                lower(booking.title) like lower(concat('%', cast(:q as string), '%'))
+                or lower(r.name) like lower(concat('%', cast(:q as string), '%'))
+                or lower(u.login) like lower(concat('%', cast(:q as string), '%'))
+                or lower(u.email) like lower(concat('%', cast(:q as string), '%'))
+                or lower(u.fullName) like lower(concat('%', cast(:q as string), '%'))
+              ))
             """,
         countQuery = """
             select count(booking) from Booking booking
             left join booking.room r
+            left join booking.user u
             where (:isAdmin = true
               or r.lockedDepartment is null
               or (:departmentId is not null and r.lockedDepartment.id = :departmentId))
+              and (:status is null or booking.status = :status)
+              and (:hasDate = false or (booking.startTime < :dayEnd and booking.endTime > :dayStart))
+              and (:activeOnly = false or booking.status in (
+                com.company.bookingroom.domain.enumeration.BookingStatus.PENDING,
+                com.company.bookingroom.domain.enumeration.BookingStatus.APPROVED
+              ))
+              and (:upcoming = false or (
+                booking.status = com.company.bookingroom.domain.enumeration.BookingStatus.APPROVED
+                and booking.startTime > :now
+              ))
+              and (:q is null or (
+                lower(booking.title) like lower(concat('%', cast(:q as string), '%'))
+                or lower(r.name) like lower(concat('%', cast(:q as string), '%'))
+                or lower(u.login) like lower(concat('%', cast(:q as string), '%'))
+                or lower(u.email) like lower(concat('%', cast(:q as string), '%'))
+                or lower(u.fullName) like lower(concat('%', cast(:q as string), '%'))
+              ))
             """
     )
-    Page<Booking> findAllVisible(
-        @Param("isAdmin") boolean isAdmin,
-        @Param("departmentId") Long departmentId,
-        Pageable pageable
-    );
-
-    @Query(
-        value = """
-            select booking from Booking booking
-            left join fetch booking.room r
-            left join fetch r.lockedDepartment
-            left join fetch booking.user
-            where booking.status = :status
-              and (:isAdmin = true
-                or r.lockedDepartment is null
-                or (:departmentId is not null and r.lockedDepartment.id = :departmentId))
-            """,
-        countQuery = """
-            select count(booking) from Booking booking
-            left join booking.room r
-            where booking.status = :status
-              and (:isAdmin = true
-                or r.lockedDepartment is null
-                or (:departmentId is not null and r.lockedDepartment.id = :departmentId))
-            """
-    )
-    Page<Booking> findVisibleByStatus(
+    Page<Booking> findVisibleFiltered(
         @Param("status") BookingStatus status,
-        @Param("isAdmin") boolean isAdmin,
-        @Param("departmentId") Long departmentId,
-        Pageable pageable
-    );
-
-    @Query(
-        value = """
-            select booking from Booking booking
-            left join fetch booking.room r
-            left join fetch r.lockedDepartment
-            left join fetch booking.user
-            where booking.startTime < :dayEnd
-              and booking.endTime > :dayStart
-              and booking.status <> com.company.bookingroom.domain.enumeration.BookingStatus.CANCELLED
-              and (:isAdmin = true
-                or r.lockedDepartment is null
-                or (:departmentId is not null and r.lockedDepartment.id = :departmentId))
-            """,
-        countQuery = """
-            select count(booking) from Booking booking
-            left join booking.room r
-            where booking.startTime < :dayEnd
-              and booking.endTime > :dayStart
-              and booking.status <> com.company.bookingroom.domain.enumeration.BookingStatus.CANCELLED
-              and (:isAdmin = true
-                or r.lockedDepartment is null
-                or (:departmentId is not null and r.lockedDepartment.id = :departmentId))
-            """
-    )
-    Page<Booking> findVisibleActiveByDayRange(
+        @Param("hasDate") boolean hasDate,
         @Param("dayStart") Instant dayStart,
         @Param("dayEnd") Instant dayEnd,
+        @Param("activeOnly") boolean activeOnly,
+        @Param("upcoming") boolean upcoming,
+        @Param("now") Instant now,
+        @Param("q") String q,
         @Param("isAdmin") boolean isAdmin,
         @Param("departmentId") Long departmentId,
         Pageable pageable
@@ -221,50 +218,41 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
         value = """
             select booking from Booking booking
             left join fetch booking.room r
-            left join fetch r.lockedDepartment
-            left join fetch booking.user
-            where booking.status = :status
-              and booking.startTime < :dayEnd
-              and booking.endTime > :dayStart
-              and (:isAdmin = true
-                or r.lockedDepartment is null
-                or (:departmentId is not null and r.lockedDepartment.id = :departmentId))
-            """,
-        countQuery = """
-            select count(booking) from Booking booking
-            left join booking.room r
-            where booking.status = :status
-              and booking.startTime < :dayEnd
-              and booking.endTime > :dayStart
-              and (:isAdmin = true
-                or r.lockedDepartment is null
-                or (:departmentId is not null and r.lockedDepartment.id = :departmentId))
-            """
-    )
-    Page<Booking> findVisibleByDayRangeAndStatus(
-        @Param("dayStart") Instant dayStart,
-        @Param("dayEnd") Instant dayEnd,
-        @Param("status") BookingStatus status,
-        @Param("isAdmin") boolean isAdmin,
-        @Param("departmentId") Long departmentId,
-        Pageable pageable
-    );
-
-    @Query(
-        value = """
-            select booking from Booking booking
-            left join fetch booking.room
             left join fetch booking.user
             where booking.user.login = :login
               and booking.status = com.company.bookingroom.domain.enumeration.BookingStatus.APPROVED
+              and (:q is null or (
+                lower(booking.title) like lower(concat('%', :q, '%'))
+                or lower(r.name) like lower(concat('%', :q, '%'))
+              ))
             """,
         countQuery = """
             select count(booking) from Booking booking
+            left join booking.room r
             where booking.user.login = :login
               and booking.status = com.company.bookingroom.domain.enumeration.BookingStatus.APPROVED
+              and (:q is null or (
+                lower(booking.title) like lower(concat('%', :q, '%'))
+                or lower(r.name) like lower(concat('%', :q, '%'))
+              ))
             """
     )
-    Page<Booking> findApprovedInvoicesByLogin(@Param("login") String login, Pageable pageable);
+    Page<Booking> findApprovedInvoicesByLogin(
+        @Param("login") String login,
+        @Param("q") String q,
+        Pageable pageable
+    );
+
+    @Query(
+        """
+        select booking from Booking booking
+        left join fetch booking.room
+        left join fetch booking.user
+        where booking.status = com.company.bookingroom.domain.enumeration.BookingStatus.PENDING
+          and booking.startTime <= :now
+        """
+    )
+    List<Booking> findPendingStartingAtOrBefore(@Param("now") Instant now);
 
     @Query(
         """

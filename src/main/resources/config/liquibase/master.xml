@@ -23,6 +23,8 @@
     <include file="config/liquibase/changelog/20260730180000_room_pricing.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260730190000_reseed_demo_data.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260730193000_fix_vietnamese_mojibake.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260731120000_notification.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260731100000_booking_expired.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>
 

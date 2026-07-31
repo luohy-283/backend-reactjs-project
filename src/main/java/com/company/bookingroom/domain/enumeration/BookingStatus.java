@@ -7,4 +7,6 @@ public enum BookingStatus {
     PENDING,
     APPROVED,
     CANCELLED,
+    /** PENDING that was not approved before start time — moved to history. */
+    EXPIRED,
 }

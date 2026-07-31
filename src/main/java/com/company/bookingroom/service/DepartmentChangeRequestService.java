@@ -31,17 +31,20 @@ public class DepartmentChangeRequestService {
     private final DepartmentRepository departmentRepository;
     private final UserRepository userRepository;
     private final CacheManager cacheManager;
+    private final NotificationService notificationService;
 
     public DepartmentChangeRequestService(
         DepartmentChangeRequestRepository requestRepository,
         DepartmentRepository departmentRepository,
         UserRepository userRepository,
-        CacheManager cacheManager
+        CacheManager cacheManager,
+        NotificationService notificationService
     ) {
         this.requestRepository = requestRepository;
         this.departmentRepository = departmentRepository;
         this.userRepository = userRepository;
         this.cacheManager = cacheManager;
+        this.notificationService = notificationService;
     }
 
     public DepartmentChangeRequestDTO create(DepartmentChangeRequestCreateDTO dto) {
@@ -70,7 +73,9 @@ public class DepartmentChangeRequestService {
         request.setRequestedDepartment(target);
         request.setStatus(DepartmentChangeRequestStatus.PENDING);
         request = requestRepository.save(request);
-        return toDto(requestRepository.findOneWithDetails(request.getId()).orElse(request));
+        DepartmentChangeRequest detailed = requestRepository.findOneWithDetails(request.getId()).orElse(request);
+        notificationService.notifyDeptChangePending(current, target.getName(), detailed.getId());
+        return toDto(detailed);
     }
 
     @Transactional(readOnly = true)
@@ -103,7 +108,12 @@ public class DepartmentChangeRequestService {
         request.setStatus(DepartmentChangeRequestStatus.APPROVED);
         request.setReviewedBy(reviewer);
         request.setReviewedDate(Instant.now());
-        return toDto(requestRepository.save(request));
+        DepartmentChangeRequest saved = requestRepository.save(request);
+        notificationService.clearPendingDeptChangeNotifications(saved.getId());
+        String deptName =
+            request.getRequestedDepartment() != null ? request.getRequestedDepartment().getName() : null;
+        notificationService.notifyDeptChangeApproved(targetUser, deptName);
+        return toDto(saved);
     }
 
     public DepartmentChangeRequestDTO reject(Long id) {
@@ -117,7 +127,12 @@ public class DepartmentChangeRequestService {
         request.setStatus(DepartmentChangeRequestStatus.REJECTED);
         request.setReviewedBy(reviewer);
         request.setReviewedDate(Instant.now());
-        return toDto(requestRepository.save(request));
+        DepartmentChangeRequest saved = requestRepository.save(request);
+        notificationService.clearPendingDeptChangeNotifications(saved.getId());
+        String deptName =
+            request.getRequestedDepartment() != null ? request.getRequestedDepartment().getName() : null;
+        notificationService.notifyDeptChangeRejected(request.getUser(), deptName);
+        return toDto(saved);
     }
 
     private DepartmentChangeRequestDTO toDto(DepartmentChangeRequest request) {

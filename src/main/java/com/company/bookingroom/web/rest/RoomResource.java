@@ -139,14 +139,17 @@ public class RoomResource {
 
     /**
      * {@code GET  /api/rooms} : get a page of Rooms.
-     * Query: {@code page} (0-based), {@code size}, {@code sort} — e.g. {@code /api/rooms?page=0&size=10&sort=id,asc}
+     * Query: {@code page} (0-based), {@code size}, {@code sort}, optional {@code q}, optional {@code active}.
+     * Example: {@code /api/rooms?page=0&size=10&sort=name,asc&q=coda&active=true}
      */
     @GetMapping("")
     public Page<RoomDTO> getAllRooms(
-        @PageableDefault(size = 20) @org.springdoc.core.annotations.ParameterObject Pageable pageable
+        @PageableDefault(size = 20) @org.springdoc.core.annotations.ParameterObject Pageable pageable,
+        @RequestParam(name = "q", required = false) String q,
+        @RequestParam(name = "active", required = false) Boolean active
     ) {
-        LOG.debug("REST request to get a page of Rooms");
-        return roomService.findAll(pageable);
+        LOG.debug("REST request to get a page of Rooms, q={}, active={}", q, active);
+        return roomService.findAll(pageable, q, active);
     }
 
     /**

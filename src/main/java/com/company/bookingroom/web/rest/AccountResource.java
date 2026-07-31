@@ -9,12 +9,15 @@ import com.company.bookingroom.service.dto.BookingDTO;
 import com.company.bookingroom.service.dto.DepartmentChangeRequestCreateDTO;
 import com.company.bookingroom.service.dto.DepartmentChangeRequestDTO;
 import jakarta.validation.Valid;
+import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import tech.jhipster.web.util.ResponseUtil;
@@ -65,9 +68,19 @@ public class AccountResource {
 
     @GetMapping("/invoices")
     public Page<BookingDTO> getMyInvoices(
+        @RequestParam(required = false) String q,
         @ParameterObject @PageableDefault(size = 20, sort = "startTime", direction = Sort.Direction.DESC) Pageable pageable
     ) {
-        return invoiceRevenueService.findMyInvoices(pageable);
+        return invoiceRevenueService.findMyInvoices(q, pageable);
+    }
+
+    @GetMapping("/invoices/export")
+    public ResponseEntity<byte[]> exportMyInvoices() {
+        byte[] csv = invoiceRevenueService.exportMyInvoicesCsv();
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"invoices.csv\"")
+            .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
+            .body(csv);
     }
 
     @GetMapping("/invoices/{id}")

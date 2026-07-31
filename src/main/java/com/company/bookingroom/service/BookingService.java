@@ -16,6 +16,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,17 +42,20 @@ public class BookingService {
     private final BookingMapper bookingMapper;
     private final UserRepository userRepository;
     private final RoomRepository roomRepository;
+    private final NotificationService notificationService;
 
     public BookingService(
         BookingRepository bookingRepository,
         BookingMapper bookingMapper,
         UserRepository userRepository,
-        RoomRepository roomRepository
+        RoomRepository roomRepository,
+        NotificationService notificationService
     ) {
         this.bookingRepository = bookingRepository;
         this.bookingMapper = bookingMapper;
         this.userRepository = userRepository;
         this.roomRepository = roomRepository;
+        this.notificationService = notificationService;
     }
 
     /**
@@ -101,11 +105,13 @@ public class BookingService {
         booking.setAmount(BookingPricing.calculateAmount(pricePerHour, bookingDTO.getStartTime(), bookingDTO.getEndTime()));
 
         booking = bookingRepository.saveAndFlush(booking);
-        return bookingMapper.toDto(
-            bookingRepository
-                .findOneWithEagerRelationships(booking.getId())
-                .orElseThrow(() -> new BadRequestAlertException("Booking not found after save", ENTITY_NAME, "idnotfound"))
-        );
+        Booking saved = bookingRepository
+            .findOneWithEagerRelationships(booking.getId())
+            .orElseThrow(() -> new BadRequestAlertException("Booking not found after save", ENTITY_NAME, "idnotfound"));
+        if (status == BookingStatus.PENDING) {
+            notificationService.notifyBookingPending(saved);
+        }
+        return bookingMapper.toDto(saved);
     }
 
     public BookingDTO update(BookingDTO bookingDTO) {
@@ -128,9 +134,24 @@ public class BookingService {
             .map(bookingMapper::toDto);
     }
 
-    @Transactional(readOnly = true)
-    public Page<BookingDTO> findAll(Pageable pageable, LocalDate date, BookingStatus status) {
-        LOG.debug("Request to get Bookings pageable={}, date={}, status={}", pageable, date, status);
+    public Page<BookingDTO> findAll(
+        Pageable pageable,
+        LocalDate date,
+        BookingStatus status,
+        String q,
+        Boolean upcoming
+    ) {
+        expirePastPending();
+        boolean upcomingOnly = Boolean.TRUE.equals(upcoming);
+        String search = (q == null || q.isBlank()) ? null : q.trim();
+        LOG.debug(
+            "Request to get Bookings pageable={}, date={}, status={}, q={}, upcoming={}",
+            pageable,
+            date,
+            status,
+            search,
+            upcomingOnly
+        );
         Pageable effectivePageable = withDefaultSort(pageable);
         boolean isAdmin = RoomAccessRules.isAdmin();
         Long departmentId = null;
@@ -138,28 +159,46 @@ public class BookingService {
             User current = requireCurrentUser();
             departmentId = current.getDepartment() != null ? current.getDepartment().getId() : null;
         }
-        Page<Booking> page;
-        if (date == null && status == null) {
-            page = bookingRepository.findAllVisible(isAdmin, departmentId, effectivePageable);
-        } else if (date == null) {
-            page = bookingRepository.findVisibleByStatus(status, isAdmin, departmentId, effectivePageable);
-        } else {
-            Instant dayStart = date.atStartOfDay(APP_ZONE).toInstant();
-            Instant dayEnd = date.plusDays(1).atStartOfDay(APP_ZONE).toInstant();
-            if (status == null) {
-                page = bookingRepository.findVisibleActiveByDayRange(dayStart, dayEnd, isAdmin, departmentId, effectivePageable);
-            } else {
-                page = bookingRepository.findVisibleByDayRangeAndStatus(
-                    dayStart,
-                    dayEnd,
-                    status,
-                    isAdmin,
-                    departmentId,
-                    effectivePageable
-                );
-            }
-        }
+        boolean hasDate = date != null;
+        Instant dayStart = hasDate ? date.atStartOfDay(APP_ZONE).toInstant() : Instant.EPOCH;
+        Instant dayEnd = hasDate ? date.plusDays(1).atStartOfDay(APP_ZONE).toInstant() : Instant.EPOCH;
+        // Day filter without status → only active (PENDING/APPROVED), matching prior list behavior.
+        boolean activeOnly = hasDate && status == null && !upcomingOnly;
+        BookingStatus effectiveStatus = upcomingOnly && status == null ? BookingStatus.APPROVED : status;
+        Page<Booking> page = bookingRepository.findVisibleFiltered(
+            effectiveStatus,
+            hasDate,
+            dayStart,
+            dayEnd,
+            activeOnly,
+            upcomingOnly,
+            Instant.now(),
+            search,
+            isAdmin,
+            departmentId,
+            effectivePageable
+        );
         return page.map(bookingMapper::toDto);
+    }
+
+    /**
+     * Move PENDING bookings whose start time has passed to EXPIRED (history).
+     * @return number of bookings expired
+     */
+    public int expirePastPending() {
+        Instant now = Instant.now();
+        List<Booking> stale = bookingRepository.findPendingStartingAtOrBefore(now);
+        if (stale.isEmpty()) {
+            return 0;
+        }
+        for (Booking booking : stale) {
+            booking.setStatus(BookingStatus.EXPIRED);
+            Booking saved = bookingRepository.save(booking);
+            notificationService.clearPendingBookingNotifications(saved.getId());
+            notificationService.notifyBookingExpired(saved);
+        }
+        LOG.info("Expired {} past PENDING booking(s)", stale.size());
+        return stale.size();
     }
 
     private User requireCurrentUser() {
@@ -194,6 +233,7 @@ public class BookingService {
     }
 
     public BookingDTO approve(Long id) {
+        expirePastPending();
         Booking booking = bookingRepository
             .findOneWithEagerRelationships(id)
             .orElseThrow(() -> new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound"));
@@ -204,10 +244,14 @@ public class BookingService {
 
         assertNoOverlap(booking.getRoom().getId(), booking.getStartTime(), booking.getEndTime(), booking.getId());
         booking.setStatus(BookingStatus.APPROVED);
-        return bookingMapper.toDto(bookingRepository.save(booking));
+        Booking saved = bookingRepository.save(booking);
+        notificationService.clearPendingBookingNotifications(saved.getId());
+        notificationService.notifyBookingApproved(saved);
+        return bookingMapper.toDto(saved);
     }
 
     public BookingDTO reject(Long id) {
+        expirePastPending();
         Booking booking = bookingRepository
             .findOneWithEagerRelationships(id)
             .orElseThrow(() -> new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound"));
@@ -217,7 +261,10 @@ public class BookingService {
         }
 
         booking.setStatus(BookingStatus.CANCELLED);
-        return bookingMapper.toDto(bookingRepository.save(booking));
+        Booking saved = bookingRepository.save(booking);
+        notificationService.clearPendingBookingNotifications(saved.getId());
+        notificationService.notifyBookingRejected(saved);
+        return bookingMapper.toDto(saved);
     }
 
     /**
@@ -240,7 +287,9 @@ public class BookingService {
         }
 
         booking.setStatus(BookingStatus.CANCELLED);
-        return bookingMapper.toDto(bookingRepository.save(booking));
+        Booking saved = bookingRepository.save(booking);
+        notificationService.notifyBookingCancelled(saved);
+        return bookingMapper.toDto(saved);
     }
 
     private void validateTimeRange(BookingDTO bookingDTO) {

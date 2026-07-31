@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- status is varchar — no enum ALTER; expire existing past PENDING once. -->
+    <changeSet id="20260731100000-1" author="agent">
+        <sql>
+            UPDATE booking
+            SET status = 'EXPIRED'
+            WHERE status = 'PENDING'
+              AND start_time &lt; NOW();
+        </sql>
+    </changeSet>
+</databaseChangeLog>

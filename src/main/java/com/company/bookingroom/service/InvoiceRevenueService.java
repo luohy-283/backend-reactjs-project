@@ -21,10 +21,13 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,15 +47,75 @@ public class InvoiceRevenueService {
     }
 
     @Transactional(readOnly = true)
-    public Page<BookingDTO> findMyInvoices(Pageable pageable) {
+    public Page<BookingDTO> findMyInvoices(String q, Pageable pageable) {
         String login = requireLogin();
-        return bookingRepository.findApprovedInvoicesByLogin(login, pageable).map(bookingMapper::toDto);
+        String needle = normalizeSearch(q);
+        return bookingRepository.findApprovedInvoicesByLogin(login, needle, pageable).map(bookingMapper::toDto);
     }
 
     @Transactional(readOnly = true)
     public Optional<BookingDTO> findMyInvoice(Long id) {
         String login = requireLogin();
         return bookingRepository.findApprovedInvoiceByIdAndLogin(id, login).map(bookingMapper::toDto);
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] exportMyInvoicesCsv() {
+        String login = requireLogin();
+        List<Booking> bookings = bookingRepository
+            .findApprovedInvoicesByLogin(login, null, Pageable.unpaged())
+            .getContent();
+        StringBuilder sb = new StringBuilder();
+        sb.append(CsvExport.line("id", "title", "room", "startTime", "endTime", "billableHours", "amount", "status")).append('\n');
+        for (Booking b : bookings) {
+            long seconds = java.time.Duration.between(b.getStartTime(), b.getEndTime()).getSeconds();
+            BigDecimal hours = BookingPricing.billableHours(seconds);
+            String roomName = b.getRoom() != null ? b.getRoom().getName() : "";
+            sb
+                .append(
+                    CsvExport.line(
+                        b.getId(),
+                        b.getTitle(),
+                        roomName,
+                        b.getStartTime(),
+                        b.getEndTime(),
+                        hours,
+                        b.getAmount(),
+                        b.getStatus()
+                    )
+                )
+                .append('\n');
+        }
+        return CsvExport.toUtf8BomBytes(sb.toString());
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] exportMonthlyRevenueCsv(String yearMonth) {
+        RevenueReportDTO report = getMonthlyRevenue(yearMonth);
+        StringBuilder sb = new StringBuilder();
+        sb.append(CsvExport.line("metric", "value")).append('\n');
+        sb.append(CsvExport.line("yearMonth", report.getYearMonth())).append('\n');
+        sb.append(CsvExport.line("totalAmount", report.getTotalAmount())).append('\n');
+        sb.append(CsvExport.line("totalBookings", report.getTotalBookings())).append('\n');
+        sb.append(CsvExport.line("averageAmount", report.getAverageAmount())).append('\n');
+        sb.append(CsvExport.line("cancelledCount", report.getCancelledCount())).append('\n');
+        sb.append(CsvExport.line("cancellationRate", report.getCancellationRate())).append('\n');
+        sb.append('\n');
+        sb.append(CsvExport.line("roomId", "roomName", "bookingCount", "amount", "sharePercent")).append('\n');
+        for (RevenueByRoomDTO row : report.getByRoom()) {
+            sb
+                .append(
+                    CsvExport.line(
+                        row.getRoomId(),
+                        row.getRoomName(),
+                        row.getBookingCount(),
+                        row.getAmount(),
+                        row.getSharePercent()
+                    )
+                )
+                .append('\n');
+        }
+        return CsvExport.toUtf8BomBytes(sb.toString());
     }
 
     @Transactional(readOnly = true)
@@ -127,6 +190,72 @@ public class InvoiceRevenueService {
         report.setByRoom(roomList);
         report.setByDay(new ArrayList<>(byDay.values()));
         return report;
+    }
+
+    /**
+     * Paged/sorted slice of monthly by-room rows (in-memory over the month aggregate).
+     * Optional {@code q} filters by room name.
+     */
+    @Transactional(readOnly = true)
+    public Page<RevenueByRoomDTO> getMonthlyRevenueByRoom(String yearMonth, String q, Pageable pageable) {
+        List<RevenueByRoomDTO> rooms = new ArrayList<>(getMonthlyRevenue(yearMonth).getByRoom());
+        String needle = normalizeSearch(q);
+        if (needle != null) {
+            rooms.removeIf(row ->
+                row.getRoomName() == null || !row.getRoomName().toLowerCase(Locale.ROOT).contains(needle)
+            );
+        }
+        rooms.sort(byRoomComparator(pageable.getSort()));
+        int start = (int) pageable.getOffset();
+        if (start >= rooms.size()) {
+            return new PageImpl<>(List.of(), pageable, rooms.size());
+        }
+        int end = Math.min(start + pageable.getPageSize(), rooms.size());
+        return new PageImpl<>(rooms.subList(start, end), pageable, rooms.size());
+    }
+
+    private static Comparator<RevenueByRoomDTO> byRoomComparator(Sort sort) {
+        if (sort == null || sort.isUnsorted()) {
+            return Comparator.comparing(RevenueByRoomDTO::getAmount, Comparator.nullsLast(Comparator.naturalOrder()))
+                .reversed();
+        }
+        Comparator<RevenueByRoomDTO> comparator = null;
+        for (Sort.Order order : sort) {
+            Comparator<RevenueByRoomDTO> next = switch (order.getProperty()) {
+                case "roomName" -> Comparator.comparing(
+                    RevenueByRoomDTO::getRoomName,
+                    Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)
+                );
+                case "bookingCount" -> Comparator.comparingLong(RevenueByRoomDTO::getBookingCount);
+                case "sharePercent" -> Comparator.comparing(
+                    RevenueByRoomDTO::getSharePercent,
+                    Comparator.nullsLast(Comparator.naturalOrder())
+                );
+                case "amount" -> Comparator.comparing(
+                    RevenueByRoomDTO::getAmount,
+                    Comparator.nullsLast(Comparator.naturalOrder())
+                );
+                default -> Comparator.comparing(
+                    RevenueByRoomDTO::getAmount,
+                    Comparator.nullsLast(Comparator.naturalOrder())
+                );
+            };
+            if (order.isDescending()) {
+                next = next.reversed();
+            }
+            comparator = comparator == null ? next : comparator.thenComparing(next);
+        }
+        return comparator != null
+            ? comparator
+            : Comparator.comparing(RevenueByRoomDTO::getAmount, Comparator.nullsLast(Comparator.naturalOrder()))
+                .reversed();
+    }
+
+    private static String normalizeSearch(String q) {
+        if (q == null || q.isBlank()) {
+            return null;
+        }
+        return q.trim().toLowerCase(Locale.ROOT);
     }
 
     private static RevenuePeriodDTO buildPeriod(YearMonth ym, List<Booking> approved, long cancelledCount) {

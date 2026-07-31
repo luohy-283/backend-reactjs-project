@@ -140,8 +140,10 @@ public class BookingResource {
 
     /**
      * {@code GET  /api/bookings} : get a page of bookings.
-     * Query: {@code page}, {@code size}, {@code sort} (default {@code startTime,desc}), optional {@code date}, {@code status}.
-     * Example: {@code /api/bookings?page=0&size=10&sort=startTime,desc}
+     * Query: {@code page}, {@code size}, {@code sort} (default {@code startTime,desc}),
+     * optional {@code date}, {@code status}, {@code q} (title/room/user), {@code upcoming=true}
+     * (APPROVED with startTime after now).
+     * Example: {@code /api/bookings?page=0&size=10&sort=startTime,desc&q=standup&upcoming=true}
      */
     @GetMapping("")
     public Page<BookingDTO> getAllBookings(
@@ -149,10 +151,12 @@ public class BookingResource {
         @org.springdoc.core.annotations.ParameterObject
         Pageable pageable,
         @RequestParam(name = "date", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-        @RequestParam(name = "status", required = false) BookingStatus status
+        @RequestParam(name = "status", required = false) BookingStatus status,
+        @RequestParam(name = "q", required = false) String q,
+        @RequestParam(name = "upcoming", required = false) Boolean upcoming
     ) {
-        LOG.debug("REST request to get a page of Bookings, date={}, status={}", date, status);
-        return bookingService.findAll(pageable, date, status);
+        LOG.debug("REST request to get a page of Bookings, date={}, status={}, q={}, upcoming={}", date, status, q, upcoming);
+        return bookingService.findAll(pageable, date, status, q, upcoming);
     }
 
     /**

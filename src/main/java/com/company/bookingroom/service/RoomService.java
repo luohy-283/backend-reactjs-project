@@ -94,15 +94,21 @@ public class RoomService {
             .map(roomMapper::toDto);
     }
 
+    /**
+     * @param q optional text search (name, capacity, locked department name/code); blank = ignored
+     * @param active {@code true}/{@code false} filter, or {@code null} for all (admin). Non-admin always sees active only.
+     */
     @Transactional(readOnly = true)
-    public Page<RoomDTO> findAll(Pageable pageable) {
-        LOG.debug("Request to get all Rooms (visibility filtered)");
+    public Page<RoomDTO> findAll(Pageable pageable, String q, Boolean active) {
+        String query = (q == null || q.isBlank()) ? null : q.trim();
+        LOG.debug("Request to get Rooms (visibility filtered), q={}, active={}", query, active);
         if (RoomAccessRules.isAdmin()) {
-            return roomRepository.findAllWithDepartment(false, pageable).map(roomMapper::toDto);
+            return roomRepository.findAllWithDepartment(active, query, pageable).map(roomMapper::toDto);
         }
         User current = requireCurrentUser();
         Long departmentId = current.getDepartment() != null ? current.getDepartment().getId() : null;
-        return roomRepository.findVisibleForDepartment(departmentId, true, pageable).map(roomMapper::toDto);
+        // Non-admin: only active rooms (ignore active=false / omit → still active-only)
+        return roomRepository.findVisibleForDepartment(departmentId, true, query, pageable).map(roomMapper::toDto);
     }
 
     @Transactional(readOnly = true)

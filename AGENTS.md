@@ -20,17 +20,22 @@ Project-specific instructions for coding agents (JHipster backend).
 ## Domain
 
 - Built-in `jhi_user` + authorities `ROLE_ADMIN` / `ROLE_USER`
-- Entities: `Room`, `Booking` (status: PENDING / APPROVED / CANCELLED), `Department`, `DepartmentChangeRequest`
+- Entities: `Room`, `Booking` (status: PENDING / APPROVED / CANCELLED / EXPIRED), `Department`, `DepartmentChangeRequest`
 - Spec login: `POST /api/auth/login` `{ email, password }` → `{ token, user: { id, email, fullName, role, department } }`
 - `jhi_user` slim: `login`(=email), `password_hash`, `full_name`, `email`, `activated`, `department_id`; role via `jhi_user_authority` (no register/mail/activation)
 - Room: optional `locked_department_id` (null = public). USER list/book only public + own dept; ADMIN sees all. `price_per_hour` (VND/hour)
-- Booking: snapshot `price_per_hour` + `amount` on create; `amount` = price × ceil(duration/30min)×0.5h (min 1 block); invoices = APPROVED (`GET /api/account/invoices`)
-- Admin revenue: `GET /api/admin/revenue?yearMonth=yyyy-MM` — KPIs + vs previous month, byRoom (share%), byDay (full month)
+- Booking: snapshot `price_per_hour` + `amount` on create; `amount` = price × ceil(duration/30min)×0.5h (min 1 block); invoices = APPROVED (`GET /api/account/invoices` — Pageable + optional `q` on title/room name)
+- Admin revenue: `GET /api/admin/revenue?yearMonth=yyyy-MM` — KPIs + vs previous month, byRoom (share%), byDay (full month); paged by-room table: `GET /api/admin/revenue/by-room?yearMonth=&page=&size=&sort=&q=`
 - Room write APIs: ADMIN only; soft-delete via `isActive=false`
-- Booking create: USER→PENDING, ADMIN→APPROVED; overlap check excludes CANCELLED; room access guard
+- Rooms list: `GET /api/rooms?page&size&sort&q&active` — `q` searches name/capacity/locked dept name|code; `active=true|false` or omit for all (admin); non-admin still active-only + dept visibility
+- Booking create: USER→PENDING, ADMIN→APPROVED; overlap check excludes CANCELLED/EXPIRED; room access guard
+- PENDING past `startTime` → EXPIRED (on list/approve/reject + scheduled every 5 min); history badge “Hết hạn”
+- `GET /api/bookings`: `page`/`size`/`sort` + optional `date`, `status`, `q` (title/room name/user login·email·fullName), `upcoming=true` (APPROVED + `startTime` > now)
 - Admin approve/reject: `POST /api/bookings/{id}/approve|reject`
 - Account: `GET|PUT /api/account` (fullName/email); department change via `/api/account/department-change-requests` + admin approve
-- Departments: `GET /api/departments`; admin users: `/api/admin/users`
+- Notifications: `GET /api/notifications`, `GET /api/notifications/unread-count`, `POST .../read`, `POST .../read-all`; created on pending/approve/reject/cancel booking and on department-change create/approve/reject (`DEPT_CHANGE_*`).
+- Export CSV: `GET /api/account/invoices/export`, `GET /api/admin/revenue/export?yearMonth=`
+- Departments: `GET /api/departments`; admin users: `/api/admin/users` (optional `q`, `activated`; list + `X-Total-Count`)
 
 ## Config notes
 
@@ -43,3 +48,7 @@ Project-specific instructions for coding agents (JHipster backend).
 
 - Re-enabling Docker Compose for local DB without asking
 - Hard-deleting rooms (use soft deactivate)
+
+## Project learnings
+
+- Always filter rooms server-side via `GET /api/rooms` optional `q` + `active` (with Pageable); do not add a second rooms list endpoint for search.
