@@ -16,7 +16,10 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 
     long countByUserLoginAndReadDateIsNull(String login);
 
-    @Modifying(clearAutomatically = true)
+    // flushAutomatically: pending entity UPDATEs (booking/dept-change status) must hit the DB
+    // before clearAutomatically wipes the persistence context — otherwise approve returns 200
+    // with the in-memory DTO while the transaction commits without those UPDATEs.
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(
         """
         update Notification n
@@ -26,7 +29,7 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     )
     int markAllReadForLogin(@Param("login") String login);
 
-    @Modifying(clearAutomatically = true)
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(
         """
         delete from Notification n
