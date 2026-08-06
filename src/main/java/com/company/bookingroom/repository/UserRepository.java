@@ -48,10 +48,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
             where (:activated is null or u.activated = :activated)
               and (
                 :q is null or :q = ''
-                or lower(u.fullName) like lower(concat('%', :q, '%'))
-                or lower(u.email) like lower(concat('%', :q, '%'))
-                or lower(u.login) like lower(concat('%', :q, '%'))
-                or (u.department is not null and lower(u.department.name) like lower(concat('%', :q, '%')))
+                or lower(u.fullName) like lower(concat('%', cast(:q as string), '%'))
+                or lower(u.email) like lower(concat('%', cast(:q as string), '%'))
+                or lower(u.login) like lower(concat('%', cast(:q as string), '%'))
+                or (u.department is not null and lower(u.department.name) like lower(concat('%', cast(:q as string), '%')))
               )
             """,
         countQuery = """
@@ -60,10 +60,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
             where (:activated is null or u.activated = :activated)
               and (
                 :q is null or :q = ''
-                or lower(u.fullName) like lower(concat('%', :q, '%'))
-                or lower(u.email) like lower(concat('%', :q, '%'))
-                or lower(u.login) like lower(concat('%', :q, '%'))
-                or (u.department is not null and lower(u.department.name) like lower(concat('%', :q, '%')))
+                or lower(u.fullName) like lower(concat('%', cast(:q as string), '%'))
+                or lower(u.email) like lower(concat('%', cast(:q as string), '%'))
+                or lower(u.login) like lower(concat('%', cast(:q as string), '%'))
+                or (u.department is not null and lower(u.department.name) like lower(concat('%', cast(:q as string), '%')))
               )
             """
     )

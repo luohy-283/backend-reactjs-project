@@ -52,3 +52,4 @@ Project-specific instructions for coding agents (JHipster backend).
 ## Project learnings
 
 - Always filter rooms server-side via `GET /api/rooms` optional `q` + `active` (with Pageable); do not add a second rooms list endpoint for search.
+- Always use `cast(:q as string)` in JPQL `concat`/`lower` search predicates on PostgreSQL; bare `:q` binds as bytea and fails with `function lower(bytea) does not exist`.

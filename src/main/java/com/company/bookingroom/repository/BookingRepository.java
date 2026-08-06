@@ -222,8 +222,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
             where booking.user.login = :login
               and booking.status = com.company.bookingroom.domain.enumeration.BookingStatus.APPROVED
               and (:q is null or (
-                lower(booking.title) like lower(concat('%', :q, '%'))
-                or lower(r.name) like lower(concat('%', :q, '%'))
+                lower(booking.title) like lower(concat('%', cast(:q as string), '%'))
+                or lower(r.name) like lower(concat('%', cast(:q as string), '%'))
               ))
             """,
         countQuery = """
@@ -232,8 +232,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
             where booking.user.login = :login
               and booking.status = com.company.bookingroom.domain.enumeration.BookingStatus.APPROVED
               and (:q is null or (
-                lower(booking.title) like lower(concat('%', :q, '%'))
-                or lower(r.name) like lower(concat('%', :q, '%'))
+                lower(booking.title) like lower(concat('%', cast(:q as string), '%'))
+                or lower(r.name) like lower(concat('%', cast(:q as string), '%'))
               ))
             """
     )
