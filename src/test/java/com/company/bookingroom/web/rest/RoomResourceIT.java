@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.company.bookingroom.IntegrationTest;
 import com.company.bookingroom.domain.Room;
 import com.company.bookingroom.repository.RoomRepository;
+import com.company.bookingroom.security.AuthoritiesConstants;
 import com.company.bookingroom.service.dto.RoomDTO;
 import com.company.bookingroom.service.mapper.RoomMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -45,6 +46,8 @@ class RoomResourceIT {
 
     private static final String ENTITY_API_URL = "/api/rooms";
     private static final String ENTITY_API_URL_ID = ENTITY_API_URL + "/{id}";
+    private static final String ADMIN_ENTITY_API_URL = "/api/admin/rooms";
+    private static final String ADMIN_ENTITY_API_URL_ID = ADMIN_ENTITY_API_URL + "/{id}";
 
     private static final Random random = new Random();
     private static final AtomicLong longCount = new AtomicLong(random.nextInt() + (2L * Integer.MAX_VALUE));
@@ -122,6 +125,28 @@ class RoomResourceIT {
         var returnedRoom = roomMapper.toEntity(returnedRoomDTO);
         assertRoomUpdatableFieldsEquals(returnedRoom, getPersistedRoom(returnedRoom));
 
+        insertedRoom = returnedRoom;
+    }
+
+    @Test
+    @Transactional
+    @WithMockUser(authorities = AuthoritiesConstants.ADMIN)
+    void createRoomViaAdminPrefix() throws Exception {
+        long databaseSizeBeforeCreate = getRepositoryCount();
+        RoomDTO roomDTO = roomMapper.toDto(room);
+        var returnedRoomDTO = om.readValue(
+            restRoomMockMvc
+                .perform(post(ADMIN_ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(om.writeValueAsBytes(roomDTO)))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString(),
+            RoomDTO.class
+        );
+
+        assertIncrementedRepositoryCount(databaseSizeBeforeCreate);
+        var returnedRoom = roomMapper.toEntity(returnedRoomDTO);
+        assertRoomUpdatableFieldsEquals(returnedRoom, getPersistedRoom(returnedRoom));
         insertedRoom = returnedRoom;
     }
 

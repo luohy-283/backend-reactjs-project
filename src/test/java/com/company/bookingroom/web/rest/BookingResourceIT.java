@@ -15,6 +15,7 @@ import com.company.bookingroom.domain.User;
 import com.company.bookingroom.domain.enumeration.BookingStatus;
 import com.company.bookingroom.repository.BookingRepository;
 import com.company.bookingroom.repository.UserRepository;
+import com.company.bookingroom.security.AuthoritiesConstants;
 import com.company.bookingroom.service.BookingService;
 import com.company.bookingroom.service.dto.BookingDTO;
 import com.company.bookingroom.service.mapper.BookingMapper;
@@ -63,6 +64,8 @@ class BookingResourceIT {
 
     private static final String ENTITY_API_URL = "/api/bookings";
     private static final String ENTITY_API_URL_ID = ENTITY_API_URL + "/{id}";
+    private static final String ADMIN_ENTITY_API_URL = "/api/admin/bookings";
+    private static final String ADMIN_ENTITY_API_URL_ID = ADMIN_ENTITY_API_URL + "/{id}";
 
     private static final Random random = new Random();
     private static final AtomicLong longCount = new AtomicLong(random.nextInt() + (2L * Integer.MAX_VALUE));
@@ -556,6 +559,23 @@ class BookingResourceIT {
 
         // Validate the database contains one less item
         assertDecrementedRepositoryCount(databaseSizeBeforeDelete);
+    }
+
+    @Test
+    @Transactional
+    @WithMockUser(authorities = AuthoritiesConstants.ADMIN)
+    void approveBookingViaAdminPrefix() throws Exception {
+        Instant start = Instant.now().plus(2, ChronoUnit.HOURS).truncatedTo(ChronoUnit.MILLIS);
+        Instant end = start.plus(1, ChronoUnit.HOURS);
+        booking.setStartTime(start);
+        booking.setEndTime(end);
+        booking.setStatus(BookingStatus.PENDING);
+        insertedBooking = bookingRepository.saveAndFlush(booking);
+
+        restBookingMockMvc
+            .perform(post(ADMIN_ENTITY_API_URL_ID + "/approve", insertedBooking.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value(BookingStatus.APPROVED.toString()));
     }
 
     protected long getRepositoryCount() {

@@ -28,9 +28,11 @@ import tech.jhipster.web.util.ResponseUtil;
 
 /**
  * REST controller for managing {@link com.company.bookingroom.domain.Booking}.
+ * Shared paths: {@code /api/bookings} and {@code /api/admin/bookings}
+ * (approve/reject/cancel remain ADMIN via {@code @PreAuthorize}).
  */
 @RestController
-@RequestMapping("/api/bookings")
+@RequestMapping({ "/api/bookings", "/api/admin/bookings" })
 public class BookingResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(BookingResource.class);

@@ -25,9 +25,11 @@ import tech.jhipster.web.util.ResponseUtil;
 
 /**
  * REST controller for managing {@link com.company.bookingroom.domain.Room}.
+ * Shared paths: {@code /api/rooms} (authenticated reads; ADMIN writes) and
+ * {@code /api/admin/rooms} (same handlers; filter requires ROLE_ADMIN).
  */
 @RestController
-@RequestMapping("/api/rooms")
+@RequestMapping({ "/api/rooms", "/api/admin/rooms" })
 public class RoomResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(RoomResource.class);
