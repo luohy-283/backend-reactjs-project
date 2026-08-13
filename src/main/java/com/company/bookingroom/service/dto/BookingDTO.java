@@ -1,6 +1,7 @@
 package com.company.bookingroom.service.dto;
 
 import com.company.bookingroom.domain.enumeration.BookingStatus;
+import com.company.bookingroom.domain.enumeration.PaymentStatus;
 import jakarta.validation.constraints.*;
 import java.io.Serializable;
 import java.math.BigDecimal;
@@ -35,6 +36,14 @@ public class BookingDTO implements Serializable {
     private BigDecimal pricePerHour;
 
     private BigDecimal amount;
+
+    private PaymentStatus paymentStatus;
+
+    private Long approvedById;
+
+    private String approvedByLogin;
+
+    private String approvedByFullName;
 
     public Long getId() {
         return id;
@@ -106,6 +115,38 @@ public class BookingDTO implements Serializable {
 
     public void setAmount(BigDecimal amount) {
         this.amount = amount;
+    }
+
+    public PaymentStatus getPaymentStatus() {
+        return paymentStatus;
+    }
+
+    public void setPaymentStatus(PaymentStatus paymentStatus) {
+        this.paymentStatus = paymentStatus;
+    }
+
+    public Long getApprovedById() {
+        return approvedById;
+    }
+
+    public void setApprovedById(Long approvedById) {
+        this.approvedById = approvedById;
+    }
+
+    public String getApprovedByLogin() {
+        return approvedByLogin;
+    }
+
+    public void setApprovedByLogin(String approvedByLogin) {
+        this.approvedByLogin = approvedByLogin;
+    }
+
+    public String getApprovedByFullName() {
+        return approvedByFullName;
+    }
+
+    public void setApprovedByFullName(String approvedByFullName) {
+        this.approvedByFullName = approvedByFullName;
     }
 
     @Override

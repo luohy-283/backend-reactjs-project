@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20260813120000-1-room-vip" author="bookingroom">
+        <addColumn tableName="room">
+            <column name="is_vip" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="vip_amenities" type="varchar(500)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20260813120000-2-equipment" author="bookingroom">
+        <createTable tableName="equipment">
+            <column name="id" type="bigint">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="category" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="unit_cost" type="decimal(19,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_active" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="20260813120000-3-room-equipment" author="bookingroom">
+        <createTable tableName="room_equipment">
+            <column name="id" type="bigint">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="room_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="equipment_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="quantity" type="integer">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint
+            baseTableName="room_equipment"
+            baseColumnNames="room_id"
+            referencedTableName="room"
+            referencedColumnNames="id"
+            constraintName="fk_room_equipment_room_id"/>
+        <addForeignKeyConstraint
+            baseTableName="room_equipment"
+            baseColumnNames="equipment_id"
+            referencedTableName="equipment"
+            referencedColumnNames="id"
+            constraintName="fk_room_equipment_equipment_id"/>
+        <addUniqueConstraint
+            tableName="room_equipment"
+            columnNames="room_id, equipment_id"
+            constraintName="ux_room_equipment_room_equipment"/>
+    </changeSet>
+
+    <changeSet id="20260813120000-4-equipment-purchase" author="bookingroom">
+        <createTable tableName="equipment_purchase">
+            <column name="id" type="bigint">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="room_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="equipment_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="quantity" type="integer">
+                <constraints nullable="false"/>
+            </column>
+            <column name="unit_cost" type="decimal(19,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="reason" type="varchar(500)"/>
+            <column name="status" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="requested_by_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="approved_by_id" type="bigint"/>
+            <column name="fulfilled_at" type="timestamp"/>
+            <column name="created_by" type="varchar(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_date" type="timestamp"/>
+            <column name="last_modified_by" type="varchar(50)"/>
+            <column name="last_modified_date" type="timestamp"/>
+        </createTable>
+        <addForeignKeyConstraint
+            baseTableName="equipment_purchase"
+            baseColumnNames="room_id"
+            referencedTableName="room"
+            referencedColumnNames="id"
+            constraintName="fk_equipment_purchase_room_id"/>
+        <addForeignKeyConstraint
+            baseTableName="equipment_purchase"
+            baseColumnNames="equipment_id"
+            referencedTableName="equipment"
+            referencedColumnNames="id"
+            constraintName="fk_equipment_purchase_equipment_id"/>
+        <addForeignKeyConstraint
+            baseTableName="equipment_purchase"
+            baseColumnNames="requested_by_id"
+            referencedTableName="jhi_user"
+            referencedColumnNames="id"
+            constraintName="fk_equipment_purchase_requested_by_id"/>
+        <addForeignKeyConstraint
+            baseTableName="equipment_purchase"
+            baseColumnNames="approved_by_id"
+            referencedTableName="jhi_user"
+            referencedColumnNames="id"
+            constraintName="fk_equipment_purchase_approved_by_id"/>
+    </changeSet>
+
+    <changeSet id="20260813120000-5-seed-equipment" author="bookingroom">
+        <insert tableName="equipment">
+            <column name="id" valueNumeric="1"/>
+            <column name="name" value="Máy chiếu Full HD"/>
+            <column name="category" value="PROJECTOR"/>
+            <column name="unit_cost" valueNumeric="8500000"/>
+            <column name="is_active" valueBoolean="true"/>
+        </insert>
+        <insert tableName="equipment">
+            <column name="id" valueNumeric="2"/>
+            <column name="name" value="Màn hình LED 55&quot;"/>
+            <column name="category" value="DISPLAY"/>
+            <column name="unit_cost" valueNumeric="12000000"/>
+            <column name="is_active" valueBoolean="true"/>
+        </insert>
+        <insert tableName="equipment">
+            <column name="id" valueNumeric="3"/>
+            <column name="name" value="Loa hội nghị"/>
+            <column name="category" value="AUDIO"/>
+            <column name="unit_cost" valueNumeric="3500000"/>
+            <column name="is_active" valueBoolean="true"/>
+        </insert>
+        <insert tableName="equipment">
+            <column name="id" valueNumeric="4"/>
+            <column name="name" value="Camera họp trực tuyến"/>
+            <column name="category" value="VC"/>
+            <column name="unit_cost" valueNumeric="6500000"/>
+            <column name="is_active" valueBoolean="true"/>
+        </insert>
+        <insert tableName="equipment">
+            <column name="id" valueNumeric="5"/>
+            <column name="name" value="Micro không dây"/>
+            <column name="category" value="OTHER"/>
+            <column name="unit_cost" valueNumeric="1500000"/>
+            <column name="is_active" valueBoolean="true"/>
+        </insert>
+        <sql>SELECT setval('sequence_generator', GREATEST((SELECT MAX(id) FROM equipment), nextval('sequence_generator') - 1))</sql>
+    </changeSet>
+</databaseChangeLog>

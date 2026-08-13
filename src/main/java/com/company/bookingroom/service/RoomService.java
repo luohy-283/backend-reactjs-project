@@ -58,6 +58,9 @@ public class RoomService {
         if (roomDTO.getPricePerHour() == null) {
             roomDTO.setPricePerHour(java.math.BigDecimal.ZERO);
         }
+        if (roomDTO.getIsVip() == null) {
+            roomDTO.setIsVip(false);
+        }
         Room room = roomMapper.toEntity(roomDTO);
         resolveLockedDepartment(room, roomDTO);
         room = roomRepository.save(room);
@@ -97,18 +100,19 @@ public class RoomService {
     /**
      * @param q optional text search (name, capacity, locked department name/code); blank = ignored
      * @param active {@code true}/{@code false} filter, or {@code null} for all (admin). Non-admin always sees active only.
+     * @param vip {@code true}/{@code false} filter, or {@code null} for all
      */
     @Transactional(readOnly = true)
-    public Page<RoomDTO> findAll(Pageable pageable, String q, Boolean active) {
+    public Page<RoomDTO> findAll(Pageable pageable, String q, Boolean active, Boolean vip) {
         String query = (q == null || q.isBlank()) ? null : q.trim();
-        LOG.debug("Request to get Rooms (visibility filtered), q={}, active={}", query, active);
-        if (RoomAccessRules.isAdmin()) {
-            return roomRepository.findAllWithDepartment(active, query, pageable).map(roomMapper::toDto);
+        LOG.debug("Request to get Rooms (visibility filtered), q={}, active={}, vip={}", query, active, vip);
+        if (RoomAccessRules.isManagerOrAbove()) {
+            return roomRepository.findAllWithDepartment(active, vip, query, pageable).map(roomMapper::toDto);
         }
         User current = requireCurrentUser();
         Long departmentId = current.getDepartment() != null ? current.getDepartment().getId() : null;
         // Non-admin: only active rooms (ignore active=false / omit → still active-only)
-        return roomRepository.findVisibleForDepartment(departmentId, true, query, pageable).map(roomMapper::toDto);
+        return roomRepository.findVisibleForDepartment(departmentId, true, vip, query, pageable).map(roomMapper::toDto);
     }
 
     @Transactional(readOnly = true)

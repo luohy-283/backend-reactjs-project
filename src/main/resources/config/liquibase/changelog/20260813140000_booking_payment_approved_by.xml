@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20260813140000-1" author="booking">
+        <addColumn tableName="booking">
+            <column name="payment_status" type="varchar(20)" defaultValue="UNPAID">
+                <constraints nullable="true"/>
+            </column>
+            <column name="approved_by_id" type="bigint">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+        <addForeignKeyConstraint
+            baseTableName="booking"
+            baseColumnNames="approved_by_id"
+            referencedTableName="jhi_user"
+            referencedColumnNames="id"
+            constraintName="fk_booking_approved_by"/>
+        <sql>
+            UPDATE booking SET payment_status = 'UNPAID' WHERE status = 'APPROVED' AND payment_status IS NULL;
+        </sql>
+    </changeSet>
+</databaseChangeLog>

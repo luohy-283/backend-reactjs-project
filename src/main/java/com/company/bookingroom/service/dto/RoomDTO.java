@@ -29,6 +29,11 @@ public class RoomDTO implements Serializable {
     @DecimalMin(value = "0.0", inclusive = true)
     private BigDecimal pricePerHour;
 
+    private Boolean isVip;
+
+    @Size(max = 500)
+    private String vipAmenities;
+
     public Long getId() {
         return id;
     }
@@ -77,6 +82,22 @@ public class RoomDTO implements Serializable {
         this.pricePerHour = pricePerHour;
     }
 
+    public Boolean getIsVip() {
+        return isVip;
+    }
+
+    public void setIsVip(Boolean isVip) {
+        this.isVip = isVip;
+    }
+
+    public String getVipAmenities() {
+        return vipAmenities;
+    }
+
+    public void setVipAmenities(String vipAmenities) {
+        this.vipAmenities = vipAmenities;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -108,6 +129,8 @@ public class RoomDTO implements Serializable {
             ", isActive='" + getIsActive() + "'" +
             ", lockedDepartment=" + getLockedDepartment() +
             ", pricePerHour=" + getPricePerHour() +
+            ", isVip='" + getIsVip() + "'" +
+            ", vipAmenities='" + getVipAmenities() + "'" +
             "}";
     }
 }

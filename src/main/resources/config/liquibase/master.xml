@@ -25,6 +25,11 @@
     <include file="config/liquibase/changelog/20260730193000_fix_vietnamese_mojibake.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260731120000_notification.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260731100000_booking_expired.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260807120000_cleanup_admin_outcome_notifications.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260807140000_drop_notification_booking_fk.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260813100000_role_manager_staff.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260813120000_equipment_and_room_vip.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260813140000_booking_payment_approved_by.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>
 

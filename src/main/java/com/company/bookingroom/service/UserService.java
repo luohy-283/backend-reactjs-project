@@ -6,6 +6,8 @@ import com.company.bookingroom.domain.User;
 import com.company.bookingroom.repository.AuthorityRepository;
 import com.company.bookingroom.repository.DepartmentRepository;
 import com.company.bookingroom.repository.UserRepository;
+import com.company.bookingroom.security.AuthoritiesConstants;
+import com.company.bookingroom.security.RoleMapping;
 import com.company.bookingroom.security.SecurityUtils;
 import com.company.bookingroom.service.dto.AccountUpdateDTO;
 import com.company.bookingroom.service.dto.AdminUserDTO;
@@ -67,20 +69,48 @@ public class UserService {
             : RandomUtil.generatePassword();
         user.setPassword(passwordEncoder.encode(rawPassword));
         user.setActivated(true);
-        if (userDTO.getAuthorities() != null) {
-            Set<Authority> authorities = userDTO
-                .getAuthorities()
-                .stream()
-                .map(authorityRepository::findById)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .collect(Collectors.toSet());
-            user.setAuthorities(authorities);
-        }
+        Set<Authority> authorities = resolveAuthorities(userDTO);
+        user.setAuthorities(authorities);
         user.setDepartment(resolveDepartment(userDTO));
         userRepository.save(user);
         this.clearUserCaches(user);
         LOG.debug("Created Information for User: {}", user);
+        return user;
+    }
+
+    /**
+     * Public self-registration — always ROLE_USER. Ignores any client-supplied role.
+     */
+    public User registerPublicUser(String email, String password, String fullName, Long departmentId) {
+        String normalizedEmail = email.toLowerCase();
+        if (userRepository.findOneByEmailIgnoreCase(normalizedEmail).isPresent()) {
+            throw new EmailAlreadyUsedException();
+        }
+        if (userRepository.findOneByLogin(normalizedEmail).isPresent()) {
+            throw new EmailAlreadyUsedException();
+        }
+        User user = new User();
+        user.setLogin(normalizedEmail);
+        user.setEmail(normalizedEmail);
+        user.setFullName(fullName);
+        user.setPassword(passwordEncoder.encode(password));
+        user.setActivated(true);
+        Set<Authority> authorities = RoleMapping.toAuthorityNames("USER")
+            .stream()
+            .map(authorityRepository::findById)
+            .filter(Optional::isPresent)
+            .map(Optional::get)
+            .collect(Collectors.toSet());
+        user.setAuthorities(authorities);
+        if (departmentId != null) {
+            Department department = departmentRepository
+                .findById(departmentId)
+                .orElseThrow(() -> new BadRequestAlertException("Department not found", ENTITY_NAME, "departmentnotfound"));
+            user.setDepartment(department);
+        }
+        userRepository.save(user);
+        this.clearUserCaches(user);
+        LOG.debug("Registered public user: {}", user.getLogin());
         return user;
     }
 
@@ -101,15 +131,7 @@ public class UserService {
                 }
                 Set<Authority> managedAuthorities = user.getAuthorities();
                 managedAuthorities.clear();
-                if (userDTO.getAuthorities() != null) {
-                    userDTO
-                        .getAuthorities()
-                        .stream()
-                        .map(authorityRepository::findById)
-                        .filter(Optional::isPresent)
-                        .map(Optional::get)
-                        .forEach(managedAuthorities::add);
-                }
+                managedAuthorities.addAll(resolveAuthorities(userDTO));
                 user.setDepartment(resolveDepartment(userDTO));
                 userRepository.save(user);
                 this.clearUserCaches(user);
@@ -133,9 +155,15 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public Page<AdminUserDTO> getAllManagedUsers(String q, Boolean activated, Pageable pageable) {
+    public Page<AdminUserDTO> getAllManagedUsers(String q, Boolean activated, String role, Pageable pageable) {
         String query = (q == null || q.isBlank()) ? null : q.trim();
-        return userRepository.findAllManaged(query, activated, pageable).map(AdminUserDTO::new);
+        String roleAuthority = RoleMapping.toFilterAuthority(role);
+        boolean userOnly = RoleMapping.isUserOnlyFilter(roleAuthority);
+        // USER-only filter uses exists/not-exists; higher roles match the given ROLE_*.
+        String authorityParam = roleAuthority;
+        return userRepository
+            .findAllManaged(query, activated, authorityParam, userOnly, pageable)
+            .map(AdminUserDTO::new);
     }
 
     @Transactional(readOnly = true)
@@ -192,6 +220,30 @@ public class UserService {
         return departmentRepository
             .findById(userDTO.getDepartment().getId())
             .orElseThrow(() -> new BadRequestAlertException("Department not found", ENTITY_NAME, "departmentnotfound"));
+    }
+
+    /**
+     * Prefer authorities from DTO; if empty but {@code role} is set, map via {@link RoleMapping}.
+     * Always ensure {@code ROLE_USER} is present alongside a higher role.
+     */
+    private Set<Authority> resolveAuthorities(AdminUserDTO userDTO) {
+        Set<String> names = userDTO.getAuthorities();
+        if (names == null || names.isEmpty()) {
+            if (userDTO.getRole() != null && !userDTO.getRole().isBlank()) {
+                names = RoleMapping.toAuthorityNames(userDTO.getRole());
+            } else {
+                names = Set.of(AuthoritiesConstants.USER);
+            }
+        } else {
+            names = new HashSet<>(names);
+            names.add(AuthoritiesConstants.USER);
+        }
+        return names
+            .stream()
+            .map(authorityRepository::findById)
+            .filter(Optional::isPresent)
+            .map(Optional::get)
+            .collect(Collectors.toSet());
     }
 
     private void clearUserCaches(User user) {

@@ -1,5 +1,6 @@
 package com.company.bookingroom.service;
 
+import com.company.bookingroom.domain.Authority;
 import com.company.bookingroom.domain.Booking;
 import com.company.bookingroom.domain.Notification;
 import com.company.bookingroom.domain.User;
@@ -11,9 +12,13 @@ import com.company.bookingroom.security.SecurityUtils;
 import com.company.bookingroom.service.dto.NotificationDTO;
 import com.company.bookingroom.web.rest.errors.BadRequestAlertException;
 import java.time.Instant;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,31 +28,68 @@ public class NotificationService {
 
     private static final String ENTITY_NAME = "notification";
 
+    /** Privileged inbox is actionable-only; outcome types go to non-privileged bookers/requesters. */
+    private static final Set<NotificationType> PRIVILEGED_ACTIONABLE_TYPES = EnumSet.of(
+        NotificationType.BOOKING_PENDING,
+        NotificationType.DEPT_CHANGE_PENDING
+    );
+
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
+    private final SimpMessagingTemplate messagingTemplate;
 
-    public NotificationService(NotificationRepository notificationRepository, UserRepository userRepository) {
+    public NotificationService(
+        NotificationRepository notificationRepository,
+        UserRepository userRepository,
+        SimpMessagingTemplate messagingTemplate
+    ) {
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
+        this.messagingTemplate = messagingTemplate;
     }
 
-    public void notifyUser(User recipient, NotificationType type, String title, String message, Long bookingId) {
+    /**
+     * @param refId booking id for BOOKING_* types, department-change-request id for DEPT_CHANGE_* (nullable for outcomes)
+     */
+    public void notifyUser(User recipient, NotificationType type, String title, String message, Long refId) {
         if (recipient == null) {
             return;
         }
+        User resolved = resolveWithAuthorities(recipient);
+        // ADMIN/MANAGER only receive PENDING (actionable) notices — never user-outcome types.
+        if (isPrivilegedInbox(resolved) && !PRIVILEGED_ACTIONABLE_TYPES.contains(type)) {
+            return;
+        }
         Notification n = new Notification();
-        n.setUser(recipient);
+        n.setUser(resolved);
         n.setType(type);
         n.setTitle(title);
         n.setMessage(message);
-        n.setBookingId(bookingId);
-        notificationRepository.save(n);
+        n.setBookingId(refId);
+        Notification saved = notificationRepository.save(n);
+        pushRealtime(resolved.getLogin(), toDto(saved));
     }
 
-    public void notifyAdmins(NotificationType type, String title, String message, Long bookingId) {
-        List<User> admins = userRepository.findAllActivatedByAuthority(AuthoritiesConstants.ADMIN);
-        for (User admin : admins) {
-            notifyUser(admin, type, title, message, bookingId);
+    private void pushRealtime(String login, NotificationDTO dto) {
+        if (login == null) {
+            return;
+        }
+        messagingTemplate.convertAndSendToUser(login, "/queue/notifications", dto);
+    }
+
+    public void notifyAdmins(NotificationType type, String title, String message, Long refId) {
+        notifyAdmins(type, title, message, refId, null);
+    }
+
+    public void notifyAdmins(NotificationType type, String title, String message, Long refId, User exclude) {
+        List<User> recipients = userRepository.findAllActivatedByAnyAuthority(
+            List.of(AuthoritiesConstants.ADMIN, AuthoritiesConstants.MANAGER)
+        );
+        for (User recipient : recipients) {
+            if (exclude != null && Objects.equals(exclude.getId(), recipient.getId())) {
+                continue;
+            }
+            notifyUser(recipient, type, title, message, refId);
         }
     }
 
@@ -105,11 +147,13 @@ public class NotificationService {
     public void notifyDeptChangePending(User requester, String targetDepartmentName, Long requestId) {
         String who = requester != null ? requester.getLogin() : "user";
         String dept = targetDepartmentName != null ? targetDepartmentName : "phòng ban mới";
+        // Skip self when an admin requests a dept change (avoid self-inbox noise).
         notifyAdmins(
             NotificationType.DEPT_CHANGE_PENDING,
             "Yêu cầu đổi phòng ban",
             who + " yêu cầu chuyển sang " + dept + " (chờ duyệt).",
-            requestId
+            requestId,
+            requester
         );
     }
 
@@ -179,6 +223,26 @@ public class NotificationService {
 
     public int markAllRead() {
         return notificationRepository.markAllReadForLogin(requireLogin());
+    }
+
+    private User resolveWithAuthorities(User user) {
+        if (user.getLogin() == null) {
+            return user;
+        }
+        return userRepository.findOneWithAuthoritiesByLogin(user.getLogin()).orElse(user);
+    }
+
+    private boolean isPrivilegedInbox(User user) {
+        if (user.getAuthorities() == null) {
+            return false;
+        }
+        for (Authority authority : user.getAuthorities()) {
+            String name = authority.getName();
+            if (AuthoritiesConstants.ADMIN.equals(name) || AuthoritiesConstants.MANAGER.equals(name)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private NotificationDTO toDto(Notification n) {

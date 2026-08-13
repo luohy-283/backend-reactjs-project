@@ -9,6 +9,8 @@ public class RevenueByRoomDTO implements Serializable {
     private String roomName;
     private long bookingCount;
     private BigDecimal amount = BigDecimal.ZERO;
+    private BigDecimal equipmentCost = BigDecimal.ZERO;
+    private BigDecimal netAmount = BigDecimal.ZERO;
     /** Share of period total revenue (0–100). */
     private BigDecimal sharePercent = BigDecimal.ZERO;
 
@@ -42,6 +44,22 @@ public class RevenueByRoomDTO implements Serializable {
 
     public void setAmount(BigDecimal amount) {
         this.amount = amount;
+    }
+
+    public BigDecimal getEquipmentCost() {
+        return equipmentCost;
+    }
+
+    public void setEquipmentCost(BigDecimal equipmentCost) {
+        this.equipmentCost = equipmentCost;
+    }
+
+    public BigDecimal getNetAmount() {
+        return netAmount;
+    }
+
+    public void setNetAmount(BigDecimal netAmount) {
+        this.netAmount = netAmount;
     }
 
     public BigDecimal getSharePercent() {

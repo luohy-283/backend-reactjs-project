@@ -25,8 +25,8 @@ import tech.jhipster.web.util.ResponseUtil;
 
 /**
  * REST controller for managing {@link com.company.bookingroom.domain.Room}.
- * Shared paths: {@code /api/rooms} (authenticated reads; ADMIN writes) and
- * {@code /api/admin/rooms} (same handlers; filter requires ROLE_ADMIN).
+ * Shared paths: {@code /api/rooms} (authenticated reads; MANAGER+ writes) and
+ * {@code /api/admin/rooms} (same handlers; filter requires ADMIN or MANAGER).
  */
 @RestController
 @RequestMapping({ "/api/rooms", "/api/admin/rooms" })
@@ -56,7 +56,7 @@ public class RoomResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PostMapping("")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.MANAGER + "\")")
     public ResponseEntity<RoomDTO> createRoom(@Valid @RequestBody RoomDTO roomDTO) throws URISyntaxException {
         LOG.debug("REST request to save Room : {}", roomDTO);
         if (roomDTO.getId() != null) {
@@ -79,7 +79,7 @@ public class RoomResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.MANAGER + "\")")
     public ResponseEntity<RoomDTO> updateRoom(
         @PathVariable(value = "id", required = false) final Long id,
         @Valid @RequestBody RoomDTO roomDTO
@@ -114,7 +114,7 @@ public class RoomResource {
      * @throws URISyntaxException if the Location URI syntax is incorrect.
      */
     @PatchMapping(value = "/{id}", consumes = { "application/json", "application/merge-patch+json" })
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.MANAGER + "\")")
     public ResponseEntity<RoomDTO> partialUpdateRoom(
         @PathVariable(value = "id", required = false) final Long id,
         @NotNull @RequestBody RoomDTO roomDTO
@@ -141,17 +141,18 @@ public class RoomResource {
 
     /**
      * {@code GET  /api/rooms} : get a page of Rooms.
-     * Query: {@code page} (0-based), {@code size}, {@code sort}, optional {@code q}, optional {@code active}.
-     * Example: {@code /api/rooms?page=0&size=10&sort=name,asc&q=coda&active=true}
+     * Query: {@code page} (0-based), {@code size}, {@code sort}, optional {@code q}, optional {@code active}, optional {@code vip}.
+     * Example: {@code /api/rooms?page=0&size=10&sort=name,asc&q=coda&active=true&vip=true}
      */
     @GetMapping("")
     public Page<RoomDTO> getAllRooms(
         @PageableDefault(size = 20) @org.springdoc.core.annotations.ParameterObject Pageable pageable,
         @RequestParam(name = "q", required = false) String q,
-        @RequestParam(name = "active", required = false) Boolean active
+        @RequestParam(name = "active", required = false) Boolean active,
+        @RequestParam(name = "vip", required = false) Boolean vip
     ) {
-        LOG.debug("REST request to get a page of Rooms, q={}, active={}", q, active);
-        return roomService.findAll(pageable, q, active);
+        LOG.debug("REST request to get a page of Rooms, q={}, active={}, vip={}", q, active, vip);
+        return roomService.findAll(pageable, q, active, vip);
     }
 
     /**
@@ -171,7 +172,7 @@ public class RoomResource {
      * Soft-delete: set isActive = false instead of hard delete.
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.MANAGER + "\")")
     public ResponseEntity<Void> deleteRoom(@PathVariable("id") Long id) {
         LOG.debug("REST request to soft-delete Room : {}", id);
         roomService.deactivate(id);

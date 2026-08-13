@@ -56,6 +56,17 @@ public class Room implements Serializable {
     @Column(name = "price_per_hour", precision = 19, scale = 2, nullable = false)
     private BigDecimal pricePerHour;
 
+    @NotNull
+    @Column(name = "is_vip", nullable = false)
+    private Boolean isVip = false;
+
+    /**
+     * CSV of VIP amenity codes, e.g. VIDEO_4K,SOUNDPROOF,CATERING,DEDICATED_SUPPORT,PRIVACY_GLASS.
+     */
+    @Size(max = 500)
+    @Column(name = "vip_amenities", length = 500)
+    private String vipAmenities;
+
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
     public Long getId() {
@@ -124,6 +135,22 @@ public class Room implements Serializable {
 
     public void setPricePerHour(BigDecimal pricePerHour) {
         this.pricePerHour = pricePerHour;
+    }
+
+    public Boolean getIsVip() {
+        return isVip;
+    }
+
+    public void setIsVip(Boolean isVip) {
+        this.isVip = isVip;
+    }
+
+    public String getVipAmenities() {
+        return vipAmenities;
+    }
+
+    public void setVipAmenities(String vipAmenities) {
+        this.vipAmenities = vipAmenities;
     }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here

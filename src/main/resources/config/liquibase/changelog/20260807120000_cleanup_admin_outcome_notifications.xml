@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- Admin inbox is actionable-only: remove leftover user-outcome notices for ROLE_ADMIN users. -->
+    <changeSet id="20260807120000-1-cleanup-admin-outcome-notifications" author="bookingroom">
+        <sql>
+            DELETE FROM notification n
+            WHERE n.type IN (
+                'BOOKING_APPROVED',
+                'BOOKING_REJECTED',
+                'BOOKING_CANCELLED',
+                'BOOKING_EXPIRED',
+                'DEPT_CHANGE_APPROVED',
+                'DEPT_CHANGE_REJECTED'
+            )
+            AND EXISTS (
+                SELECT 1
+                FROM jhi_user_authority ua
+                WHERE ua.user_id = n.user_id
+                  AND ua.authority_name = 'ROLE_ADMIN'
+            );
+        </sql>
+    </changeSet>
+</databaseChangeLog>

@@ -1,7 +1,9 @@
 package com.company.bookingroom.service;
 
 import com.company.bookingroom.domain.Booking;
+import com.company.bookingroom.domain.EquipmentPurchase;
 import com.company.bookingroom.repository.BookingRepository;
+import com.company.bookingroom.repository.EquipmentPurchaseRepository;
 import com.company.bookingroom.security.SecurityUtils;
 import com.company.bookingroom.service.dto.BookingDTO;
 import com.company.bookingroom.service.dto.RevenueByDayDTO;
@@ -19,6 +21,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -40,17 +43,23 @@ public class InvoiceRevenueService {
 
     private final BookingRepository bookingRepository;
     private final BookingMapper bookingMapper;
+    private final EquipmentPurchaseRepository equipmentPurchaseRepository;
 
-    public InvoiceRevenueService(BookingRepository bookingRepository, BookingMapper bookingMapper) {
+    public InvoiceRevenueService(
+        BookingRepository bookingRepository,
+        BookingMapper bookingMapper,
+        EquipmentPurchaseRepository equipmentPurchaseRepository
+    ) {
         this.bookingRepository = bookingRepository;
         this.bookingMapper = bookingMapper;
+        this.equipmentPurchaseRepository = equipmentPurchaseRepository;
     }
 
     @Transactional(readOnly = true)
-    public Page<BookingDTO> findMyInvoices(String q, Pageable pageable) {
+    public Page<BookingDTO> findMyInvoices(String q, com.company.bookingroom.domain.enumeration.PaymentStatus paymentStatus, Pageable pageable) {
         String login = requireLogin();
         String needle = normalizeSearch(q);
-        return bookingRepository.findApprovedInvoicesByLogin(login, needle, pageable).map(bookingMapper::toDto);
+        return bookingRepository.findApprovedInvoicesByLogin(login, needle, paymentStatus, pageable).map(bookingMapper::toDto);
     }
 
     @Transactional(readOnly = true)
@@ -63,14 +72,17 @@ public class InvoiceRevenueService {
     public byte[] exportMyInvoicesCsv() {
         String login = requireLogin();
         List<Booking> bookings = bookingRepository
-            .findApprovedInvoicesByLogin(login, null, Pageable.unpaged())
+            .findApprovedInvoicesByLogin(login, null, null, Pageable.unpaged())
             .getContent();
         StringBuilder sb = new StringBuilder();
-        sb.append(CsvExport.line("id", "title", "room", "startTime", "endTime", "billableHours", "amount", "status")).append('\n');
+        sb.append(CsvExport.line("id", "title", "room", "startTime", "endTime", "billableHours", "amount", "status", "paymentStatus", "approvedBy")).append('\n');
         for (Booking b : bookings) {
             long seconds = java.time.Duration.between(b.getStartTime(), b.getEndTime()).getSeconds();
             BigDecimal hours = BookingPricing.billableHours(seconds);
             String roomName = b.getRoom() != null ? b.getRoom().getName() : "";
+            String approvedBy = b.getApprovedBy() != null
+                ? (b.getApprovedBy().getFullName() != null ? b.getApprovedBy().getFullName() : b.getApprovedBy().getLogin())
+                : "";
             sb
                 .append(
                     CsvExport.line(
@@ -81,7 +93,9 @@ public class InvoiceRevenueService {
                         b.getEndTime(),
                         hours,
                         b.getAmount(),
-                        b.getStatus()
+                        b.getStatus(),
+                        b.getPaymentStatus(),
+                        approvedBy
                     )
                 )
                 .append('\n');
@@ -96,12 +110,16 @@ public class InvoiceRevenueService {
         sb.append(CsvExport.line("metric", "value")).append('\n');
         sb.append(CsvExport.line("yearMonth", report.getYearMonth())).append('\n');
         sb.append(CsvExport.line("totalAmount", report.getTotalAmount())).append('\n');
+        sb.append(CsvExport.line("equipmentCost", report.getEquipmentCost())).append('\n');
+        sb.append(CsvExport.line("netAmount", report.getNetAmount())).append('\n');
         sb.append(CsvExport.line("totalBookings", report.getTotalBookings())).append('\n');
         sb.append(CsvExport.line("averageAmount", report.getAverageAmount())).append('\n');
         sb.append(CsvExport.line("cancelledCount", report.getCancelledCount())).append('\n');
         sb.append(CsvExport.line("cancellationRate", report.getCancellationRate())).append('\n');
         sb.append('\n');
-        sb.append(CsvExport.line("roomId", "roomName", "bookingCount", "amount", "sharePercent")).append('\n');
+        sb
+            .append(CsvExport.line("roomId", "roomName", "bookingCount", "amount", "equipmentCost", "netAmount", "sharePercent"))
+            .append('\n');
         for (RevenueByRoomDTO row : report.getByRoom()) {
             sb
                 .append(
@@ -110,6 +128,8 @@ public class InvoiceRevenueService {
                         row.getRoomName(),
                         row.getBookingCount(),
                         row.getAmount(),
+                        row.getEquipmentCost(),
+                        row.getNetAmount(),
                         row.getSharePercent()
                     )
                 )
@@ -134,8 +154,27 @@ public class InvoiceRevenueService {
         List<Booking> previousBookings = bookingRepository.findApprovedInMonth(prevStart, prevEnd);
         long previousCancelled = bookingRepository.countCancelledInMonth(prevStart, prevEnd);
 
-        RevenuePeriodDTO currentPeriod = buildPeriod(ym, bookings, cancelledCount);
-        RevenuePeriodDTO previousPeriod = buildPeriod(previousYm, previousBookings, previousCancelled);
+        Map<Long, BigDecimal> equipmentByRoom = new HashMap<>();
+        Map<Long, String> equipmentRoomNames = new HashMap<>();
+        for (EquipmentPurchase purchase : equipmentPurchaseRepository.findFulfilledInRange(monthStart, monthEnd)) {
+            if (purchase.getRoom() == null || purchase.getRoom().getId() == null) {
+                continue;
+            }
+            Long roomId = purchase.getRoom().getId();
+            BigDecimal line = (purchase.getUnitCost() != null ? purchase.getUnitCost() : BigDecimal.ZERO).multiply(
+                BigDecimal.valueOf(purchase.getQuantity() != null ? purchase.getQuantity() : 0)
+            );
+            equipmentByRoom.merge(roomId, line, BigDecimal::add);
+            if (purchase.getRoom().getName() != null) {
+                equipmentRoomNames.putIfAbsent(roomId, purchase.getRoom().getName());
+            }
+        }
+        Map<Long, BigDecimal> previousEquipmentByRoom = sumEquipmentCostByRoom(prevStart, prevEnd);
+        BigDecimal equipmentCost = sumMap(equipmentByRoom);
+        BigDecimal previousEquipmentCost = sumMap(previousEquipmentByRoom);
+
+        RevenuePeriodDTO currentPeriod = buildPeriod(ym, bookings, cancelledCount, equipmentCost);
+        RevenuePeriodDTO previousPeriod = buildPeriod(previousYm, previousBookings, previousCancelled, previousEquipmentCost);
 
         BigDecimal total = currentPeriod.getTotalAmount();
         Map<Long, RevenueByRoomDTO> byRoom = new LinkedHashMap<>();
@@ -153,15 +192,7 @@ public class InvoiceRevenueService {
             BigDecimal amount = booking.getAmount() != null ? booking.getAmount() : BigDecimal.ZERO;
 
             Long roomId = booking.getRoom().getId();
-            RevenueByRoomDTO roomRow = byRoom.computeIfAbsent(roomId, id -> {
-                RevenueByRoomDTO dto = new RevenueByRoomDTO();
-                dto.setRoomId(id);
-                dto.setRoomName(booking.getRoom().getName());
-                dto.setBookingCount(0);
-                dto.setAmount(BigDecimal.ZERO);
-                dto.setSharePercent(BigDecimal.ZERO);
-                return dto;
-            });
+            RevenueByRoomDTO roomRow = byRoom.computeIfAbsent(roomId, id -> newRoomRow(id, booking.getRoom().getName()));
             roomRow.setBookingCount(roomRow.getBookingCount() + 1);
             roomRow.setAmount(roomRow.getAmount().add(amount));
 
@@ -173,15 +204,30 @@ public class InvoiceRevenueService {
             }
         }
 
+        for (Map.Entry<Long, BigDecimal> entry : equipmentByRoom.entrySet()) {
+            Long roomId = entry.getKey();
+            RevenueByRoomDTO roomRow = byRoom.computeIfAbsent(
+                roomId,
+                id -> newRoomRow(id, equipmentRoomNames.getOrDefault(id, "Room #" + id))
+            );
+            roomRow.setEquipmentCost(entry.getValue());
+        }
+
         List<RevenueByRoomDTO> roomList = new ArrayList<>(byRoom.values());
-        roomList.sort(Comparator.comparing(RevenueByRoomDTO::getAmount).reversed());
         for (RevenueByRoomDTO roomRow : roomList) {
+            if (roomRow.getEquipmentCost() == null) {
+                roomRow.setEquipmentCost(BigDecimal.ZERO);
+            }
+            roomRow.setNetAmount(roomRow.getAmount().subtract(roomRow.getEquipmentCost()));
             roomRow.setSharePercent(sharePercent(roomRow.getAmount(), total));
         }
+        roomList.sort(Comparator.comparing(RevenueByRoomDTO::getAmount).reversed());
 
         RevenueReportDTO report = new RevenueReportDTO();
         report.setYearMonth(currentPeriod.getYearMonth());
         report.setTotalAmount(currentPeriod.getTotalAmount());
+        report.setEquipmentCost(currentPeriod.getEquipmentCost());
+        report.setNetAmount(currentPeriod.getNetAmount());
         report.setTotalBookings(currentPeriod.getTotalBookings());
         report.setAverageAmount(currentPeriod.getAverageAmount());
         report.setCancelledCount(currentPeriod.getCancelledCount());
@@ -214,6 +260,40 @@ public class InvoiceRevenueService {
         return new PageImpl<>(rooms.subList(start, end), pageable, rooms.size());
     }
 
+    private Map<Long, BigDecimal> sumEquipmentCostByRoom(Instant from, Instant to) {
+        Map<Long, BigDecimal> byRoom = new HashMap<>();
+        for (EquipmentPurchase purchase : equipmentPurchaseRepository.findFulfilledInRange(from, to)) {
+            if (purchase.getRoom() == null || purchase.getRoom().getId() == null) {
+                continue;
+            }
+            BigDecimal line = (purchase.getUnitCost() != null ? purchase.getUnitCost() : BigDecimal.ZERO).multiply(
+                BigDecimal.valueOf(purchase.getQuantity() != null ? purchase.getQuantity() : 0)
+            );
+            byRoom.merge(purchase.getRoom().getId(), line, BigDecimal::add);
+        }
+        return byRoom;
+    }
+
+    private static BigDecimal sumMap(Map<Long, BigDecimal> map) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (BigDecimal value : map.values()) {
+            total = total.add(value);
+        }
+        return total;
+    }
+
+    private static RevenueByRoomDTO newRoomRow(Long roomId, String roomName) {
+        RevenueByRoomDTO dto = new RevenueByRoomDTO();
+        dto.setRoomId(roomId);
+        dto.setRoomName(roomName);
+        dto.setBookingCount(0);
+        dto.setAmount(BigDecimal.ZERO);
+        dto.setEquipmentCost(BigDecimal.ZERO);
+        dto.setNetAmount(BigDecimal.ZERO);
+        dto.setSharePercent(BigDecimal.ZERO);
+        return dto;
+    }
+
     private static Comparator<RevenueByRoomDTO> byRoomComparator(Sort sort) {
         if (sort == null || sort.isUnsorted()) {
             return Comparator.comparing(RevenueByRoomDTO::getRoomId, Comparator.nullsLast(Comparator.naturalOrder()));
@@ -228,6 +308,14 @@ public class InvoiceRevenueService {
                 case "bookingCount" -> Comparator.comparingLong(RevenueByRoomDTO::getBookingCount);
                 case "sharePercent" -> Comparator.comparing(
                     RevenueByRoomDTO::getSharePercent,
+                    Comparator.nullsLast(Comparator.naturalOrder())
+                );
+                case "equipmentCost" -> Comparator.comparing(
+                    RevenueByRoomDTO::getEquipmentCost,
+                    Comparator.nullsLast(Comparator.naturalOrder())
+                );
+                case "netAmount" -> Comparator.comparing(
+                    RevenueByRoomDTO::getNetAmount,
                     Comparator.nullsLast(Comparator.naturalOrder())
                 );
                 case "amount" -> Comparator.comparing(
@@ -256,17 +344,25 @@ public class InvoiceRevenueService {
         return q.trim().toLowerCase(Locale.ROOT);
     }
 
-    private static RevenuePeriodDTO buildPeriod(YearMonth ym, List<Booking> approved, long cancelledCount) {
+    private static RevenuePeriodDTO buildPeriod(
+        YearMonth ym,
+        List<Booking> approved,
+        long cancelledCount,
+        BigDecimal equipmentCost
+    ) {
         BigDecimal total = BigDecimal.ZERO;
         for (Booking booking : approved) {
             total = total.add(booking.getAmount() != null ? booking.getAmount() : BigDecimal.ZERO);
         }
         long bookings = approved.size();
         long attempts = bookings + cancelledCount;
+        BigDecimal cost = equipmentCost != null ? equipmentCost : BigDecimal.ZERO;
 
         RevenuePeriodDTO period = new RevenuePeriodDTO();
         period.setYearMonth(ym.toString());
         period.setTotalAmount(total);
+        period.setEquipmentCost(cost);
+        period.setNetAmount(total.subtract(cost));
         period.setTotalBookings(bookings);
         period.setAverageAmount(
             bookings == 0

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      booking_id is a polymorphic ref: booking.id for BOOKING_* types,
+      department_change_request.id for DEPT_CHANGE_* types. FK to booking
+      breaks dept-change notification inserts when the request id is not a booking id.
+    -->
+    <changeSet id="20260807140000-1-drop-notification-booking-fk" author="bookingroom">
+        <sql dbms="postgresql">
+            ALTER TABLE notification DROP CONSTRAINT IF EXISTS fk_notification_booking_id;
+        </sql>
+    </changeSet>
+</databaseChangeLog>

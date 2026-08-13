@@ -16,14 +16,19 @@ public final class RoomAccessRules {
         return SecurityUtils.hasCurrentUserThisAuthority(AuthoritiesConstants.ADMIN);
     }
 
+    /** ADMIN or MANAGER — see-all rooms/bookings and locked-room access. */
+    public static boolean isManagerOrAbove() {
+        return SecurityUtils.hasCurrentUserAnyOfAuthorities(AuthoritiesConstants.ADMIN, AuthoritiesConstants.MANAGER);
+    }
+
     /**
-     * Public room, or locked to the user's department. Admins can access all rooms.
+     * Public room, or locked to the user's department. Managers+ can access all rooms.
      */
     public static boolean canAccess(Room room, User user) {
         if (room == null) {
             return false;
         }
-        if (isAdmin()) {
+        if (isManagerOrAbove()) {
             return true;
         }
         if (room.getLockedDepartment() == null) {

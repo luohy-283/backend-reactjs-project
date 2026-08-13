@@ -68,9 +68,10 @@ public class AccountResource {
     @GetMapping("/invoices")
     public Page<BookingDTO> getMyInvoices(
         @RequestParam(required = false) String q,
+        @RequestParam(required = false) com.company.bookingroom.domain.enumeration.PaymentStatus paymentStatus,
         @ParameterObject @PageableDefault(size = 20) Pageable pageable
     ) {
-        return invoiceRevenueService.findMyInvoices(q, pageable);
+        return invoiceRevenueService.findMyInvoices(q, paymentStatus, pageable);
     }
 
     @GetMapping("/invoices/export")

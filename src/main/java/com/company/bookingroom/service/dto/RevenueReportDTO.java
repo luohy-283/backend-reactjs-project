@@ -9,6 +9,8 @@ public class RevenueReportDTO implements Serializable {
 
     private String yearMonth;
     private BigDecimal totalAmount = BigDecimal.ZERO;
+    private BigDecimal equipmentCost = BigDecimal.ZERO;
+    private BigDecimal netAmount = BigDecimal.ZERO;
     private long totalBookings;
     private BigDecimal averageAmount = BigDecimal.ZERO;
     private long cancelledCount;
@@ -31,6 +33,22 @@ public class RevenueReportDTO implements Serializable {
 
     public void setTotalAmount(BigDecimal totalAmount) {
         this.totalAmount = totalAmount;
+    }
+
+    public BigDecimal getEquipmentCost() {
+        return equipmentCost;
+    }
+
+    public void setEquipmentCost(BigDecimal equipmentCost) {
+        this.equipmentCost = equipmentCost;
+    }
+
+    public BigDecimal getNetAmount() {
+        return netAmount;
+    }
+
+    public void setNetAmount(BigDecimal netAmount) {
+        this.netAmount = netAmount;
     }
 
     public long getTotalBookings() {

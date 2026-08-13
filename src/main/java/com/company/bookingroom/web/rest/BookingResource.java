@@ -29,7 +29,7 @@ import tech.jhipster.web.util.ResponseUtil;
 /**
  * REST controller for managing {@link com.company.bookingroom.domain.Booking}.
  * Shared paths: {@code /api/bookings} and {@code /api/admin/bookings}
- * (approve/reject/cancel remain ADMIN via {@code @PreAuthorize}).
+ * (approve/reject/cancel remain MANAGER+ via {@code @PreAuthorize}).
  */
 @RestController
 @RequestMapping({ "/api/bookings", "/api/admin/bookings" })
@@ -142,9 +142,9 @@ public class BookingResource {
     /**
      * {@code GET  /api/bookings} : get a page of bookings.
      * Query: {@code page}, {@code size}, optional {@code sort},
-     * optional {@code date}, {@code status}, {@code q} (title/room/user), {@code upcoming=true}
+     * optional {@code date}, {@code from}/{@code to} (startTime range), {@code status}, {@code q}, {@code upcoming=true}
      * (APPROVED with startTime after now).
-     * Example: {@code /api/bookings?page=0&size=10&sort=startTime,desc&q=standup&upcoming=true}
+     * Example: {@code /api/bookings?page=0&size=10&sort=startTime,desc&from=2026-08-01&to=2026-08-31}
      */
     @GetMapping("")
     public Page<BookingDTO> getAllBookings(
@@ -152,19 +152,29 @@ public class BookingResource {
         @org.springdoc.core.annotations.ParameterObject
         Pageable pageable,
         @RequestParam(name = "date", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+        @RequestParam(name = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+        @RequestParam(name = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
         @RequestParam(name = "status", required = false) BookingStatus status,
         @RequestParam(name = "q", required = false) String q,
         @RequestParam(name = "upcoming", required = false) Boolean upcoming
     ) {
-        LOG.debug("REST request to get a page of Bookings, date={}, status={}, q={}, upcoming={}", date, status, q, upcoming);
-        return bookingService.findAll(pageable, date, status, q, upcoming);
+        LOG.debug(
+            "REST request to get a page of Bookings, date={}, from={}, to={}, status={}, q={}, upcoming={}",
+            date,
+            from,
+            to,
+            status,
+            q,
+            upcoming
+        );
+        return bookingService.findAll(pageable, date, from, to, status, q, upcoming);
     }
 
     /**
-     * {@code POST  /bookings/:id/approve} : approve a PENDING booking (ADMIN).
+     * {@code POST  /bookings/:id/approve} : approve a PENDING booking (MANAGER+).
      */
     @PostMapping("/{id}/approve")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.MANAGER + "\")")
     public ResponseEntity<BookingDTO> approveBooking(@PathVariable("id") Long id) {
         LOG.debug("REST request to approve Booking : {}", id);
         BookingDTO result = bookingService.approve(id);
@@ -174,10 +184,10 @@ public class BookingResource {
     }
 
     /**
-     * {@code POST  /bookings/:id/reject} : reject a PENDING booking (ADMIN).
+     * {@code POST  /bookings/:id/reject} : reject a PENDING booking (MANAGER+).
      */
     @PostMapping("/{id}/reject")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.MANAGER + "\")")
     public ResponseEntity<BookingDTO> rejectBooking(@PathVariable("id") Long id) {
         LOG.debug("REST request to reject Booking : {}", id);
         BookingDTO result = bookingService.reject(id);
@@ -187,13 +197,26 @@ public class BookingResource {
     }
 
     /**
-     * {@code POST  /bookings/:id/cancel} : cancel an APPROVED booking that has not started (ADMIN).
+     * {@code POST  /bookings/:id/cancel} : cancel an APPROVED booking that has not started (MANAGER+).
      */
     @PostMapping("/{id}/cancel")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.MANAGER + "\")")
     public ResponseEntity<BookingDTO> cancelBooking(@PathVariable("id") Long id) {
         LOG.debug("REST request to cancel Booking : {}", id);
         BookingDTO result = bookingService.cancel(id);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(applicationName, false, ENTITY_NAME, id.toString()))
+            .body(result);
+    }
+
+    /**
+     * {@code POST  /bookings/:id/mark-paid} : mark APPROVED invoice as PAID (MANAGER+).
+     */
+    @PostMapping("/{id}/mark-paid")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.MANAGER + "\")")
+    public ResponseEntity<BookingDTO> markPaid(@PathVariable("id") Long id) {
+        LOG.debug("REST request to mark Booking paid : {}", id);
+        BookingDTO result = bookingService.markPaid(id);
         return ResponseEntity.ok()
             .headers(HeaderUtil.createEntityUpdateAlert(applicationName, false, ENTITY_NAME, id.toString()))
             .body(result);

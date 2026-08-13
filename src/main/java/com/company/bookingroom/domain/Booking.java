@@ -1,6 +1,7 @@
 package com.company.bookingroom.domain;
 
 import com.company.bookingroom.domain.enumeration.BookingStatus;
+import com.company.bookingroom.domain.enumeration.PaymentStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import java.io.Serial;
@@ -67,6 +68,14 @@ public class Booking implements Serializable {
     @NotNull
     @Column(name = "amount", precision = 19, scale = 2, nullable = false)
     private BigDecimal amount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_status", length = 20)
+    private PaymentStatus paymentStatus;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "approved_by_id")
+    private User approvedBy;
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
@@ -175,6 +184,22 @@ public class Booking implements Serializable {
 
     public void setAmount(BigDecimal amount) {
         this.amount = amount;
+    }
+
+    public PaymentStatus getPaymentStatus() {
+        return paymentStatus;
+    }
+
+    public void setPaymentStatus(PaymentStatus paymentStatus) {
+        this.paymentStatus = paymentStatus;
+    }
+
+    public User getApprovedBy() {
+        return approvedBy;
+    }
+
+    public void setApprovedBy(User approvedBy) {
+        this.approvedBy = approvedBy;
     }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here

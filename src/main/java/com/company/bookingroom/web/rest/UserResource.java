@@ -128,6 +128,7 @@ public class UserResource {
      *
      * @param q optional search on fullName, email, login, department name.
      * @param activated optional filter ({@code true}/{@code false}); omit for all.
+     * @param role optional {@code ADMIN}|{@code MANAGER}|{@code STAFF}|{@code USER} (or {@code ROLE_*}).
      * @param pageable the pagination information.
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and with body all users.
      */
@@ -136,6 +137,7 @@ public class UserResource {
     public ResponseEntity<List<AdminUserDTO>> getAllUsers(
         @RequestParam(name = "q", required = false) String q,
         @RequestParam(name = "activated", required = false) Boolean activated,
+        @RequestParam(name = "role", required = false) String role,
         @org.springdoc.core.annotations.ParameterObject Pageable pageable
     ) {
         LOG.debug("REST request to get all User for an admin");
@@ -143,7 +145,7 @@ public class UserResource {
             return ResponseEntity.badRequest().build();
         }
 
-        final Page<AdminUserDTO> page = userService.getAllManagedUsers(q, activated, pageable);
+        final Page<AdminUserDTO> page = userService.getAllManagedUsers(q, activated, role, pageable);
         HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(ServletUriComponentsBuilder.fromCurrentRequest(), page);
         return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
     }

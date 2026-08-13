@@ -27,14 +27,14 @@ public class DepartmentResource {
     }
 
     @PostMapping("")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.MANAGER + "\")")
     public ResponseEntity<DepartmentDTO> create(@Valid @RequestBody DepartmentDTO dto) throws URISyntaxException {
         DepartmentDTO result = departmentService.save(dto);
         return ResponseEntity.created(new URI("/api/departments/" + result.getId())).body(result);
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.ADMIN + "\")")
+    @PreAuthorize("hasAuthority(\"" + AuthoritiesConstants.MANAGER + "\")")
     public ResponseEntity<DepartmentDTO> update(@PathVariable Long id, @Valid @RequestBody DepartmentDTO dto) {
         dto.setId(id);
         return ResponseEntity.ok(departmentService.update(dto));

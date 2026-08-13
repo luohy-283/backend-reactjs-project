@@ -44,6 +44,10 @@ public class Notification extends AbstractAuditingEntity<Long> implements Serial
     @Column(name = "message", length = 500, nullable = false)
     private String message;
 
+    /**
+     * Polymorphic reference: booking id for BOOKING_* types, department-change-request id for DEPT_CHANGE_*.
+     * Not FK-constrained (see liquibase 20260807140000).
+     */
     @Column(name = "booking_id")
     private Long bookingId;
 

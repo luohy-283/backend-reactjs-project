@@ -32,15 +32,15 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     }
 
     @Query(
-        value = "select booking from Booking booking left join fetch booking.room left join fetch booking.user",
+        value = "select booking from Booking booking left join fetch booking.room left join fetch booking.user left join fetch booking.approvedBy",
         countQuery = "select count(booking) from Booking booking"
     )
     Page<Booking> findAllWithToOneRelationships(Pageable pageable);
 
-    @Query("select booking from Booking booking left join fetch booking.room left join fetch booking.user")
+    @Query("select booking from Booking booking left join fetch booking.room left join fetch booking.user left join fetch booking.approvedBy")
     List<Booking> findAllWithToOneRelationships();
 
-    @Query("select booking from Booking booking left join fetch booking.room left join fetch booking.user where booking.id =:id")
+    @Query("select booking from Booking booking left join fetch booking.room left join fetch booking.user left join fetch booking.approvedBy where booking.id =:id")
     Optional<Booking> findOneWithToOneRelationships(@Param("id") Long id);
 
     @Query(
@@ -144,8 +144,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     boolean existsActiveBookingsForRoom(@Param("roomId") Long roomId, @Param("now") Instant now);
 
     /**
-     * Visible bookings with optional status, calendar day, upcoming (APPROVED + startTime &gt; now),
-     * and text search on title / room name / user login·email·fullName.
+     * Visible bookings with optional status, calendar day, startTime range (from/to),
+     * upcoming (APPROVED + startTime &gt; now), and text search on title / room name / user.
      */
     @Query(
         value = """
@@ -158,6 +158,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
               or (:departmentId is not null and r.lockedDepartment.id = :departmentId))
               and (:status is null or booking.status = :status)
               and (:hasDate = false or (booking.startTime < :dayEnd and booking.endTime > :dayStart))
+              and (:hasFrom = false or booking.startTime >= :rangeStart)
+              and (:hasTo = false or booking.startTime < :rangeEnd)
               and (:activeOnly = false or booking.status in (
                 com.company.bookingroom.domain.enumeration.BookingStatus.PENDING,
                 com.company.bookingroom.domain.enumeration.BookingStatus.APPROVED
@@ -183,6 +185,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
               or (:departmentId is not null and r.lockedDepartment.id = :departmentId))
               and (:status is null or booking.status = :status)
               and (:hasDate = false or (booking.startTime < :dayEnd and booking.endTime > :dayStart))
+              and (:hasFrom = false or booking.startTime >= :rangeStart)
+              and (:hasTo = false or booking.startTime < :rangeEnd)
               and (:activeOnly = false or booking.status in (
                 com.company.bookingroom.domain.enumeration.BookingStatus.PENDING,
                 com.company.bookingroom.domain.enumeration.BookingStatus.APPROVED
@@ -205,6 +209,10 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
         @Param("hasDate") boolean hasDate,
         @Param("dayStart") Instant dayStart,
         @Param("dayEnd") Instant dayEnd,
+        @Param("hasFrom") boolean hasFrom,
+        @Param("hasTo") boolean hasTo,
+        @Param("rangeStart") Instant rangeStart,
+        @Param("rangeEnd") Instant rangeEnd,
         @Param("activeOnly") boolean activeOnly,
         @Param("upcoming") boolean upcoming,
         @Param("now") Instant now,
@@ -219,8 +227,10 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
             select booking from Booking booking
             left join fetch booking.room r
             left join fetch booking.user
+            left join fetch booking.approvedBy
             where booking.user.login = :login
               and booking.status = com.company.bookingroom.domain.enumeration.BookingStatus.APPROVED
+              and (:paymentStatus is null or booking.paymentStatus = :paymentStatus)
               and (:q is null or (
                 lower(booking.title) like lower(concat('%', cast(:q as string), '%'))
                 or lower(r.name) like lower(concat('%', cast(:q as string), '%'))
@@ -231,6 +241,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
             left join booking.room r
             where booking.user.login = :login
               and booking.status = com.company.bookingroom.domain.enumeration.BookingStatus.APPROVED
+              and (:paymentStatus is null or booking.paymentStatus = :paymentStatus)
               and (:q is null or (
                 lower(booking.title) like lower(concat('%', cast(:q as string), '%'))
                 or lower(r.name) like lower(concat('%', cast(:q as string), '%'))
@@ -240,6 +251,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     Page<Booking> findApprovedInvoicesByLogin(
         @Param("login") String login,
         @Param("q") String q,
+        @Param("paymentStatus") com.company.bookingroom.domain.enumeration.PaymentStatus paymentStatus,
         Pageable pageable
     );
 
@@ -259,6 +271,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
         select booking from Booking booking
         left join fetch booking.room
         left join fetch booking.user
+        left join fetch booking.approvedBy
         where booking.id = :id
           and booking.user.login = :login
           and booking.status = com.company.bookingroom.domain.enumeration.BookingStatus.APPROVED

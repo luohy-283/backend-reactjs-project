@@ -15,7 +15,13 @@ import org.mapstruct.*;
 public interface BookingMapper extends EntityMapper<BookingDTO, Booking> {
     @Mapping(target = "room", source = "room", qualifiedByName = "roomName")
     @Mapping(target = "user", source = "user", qualifiedByName = "userLogin")
+    @Mapping(target = "approvedById", source = "approvedBy.id")
+    @Mapping(target = "approvedByLogin", source = "approvedBy.login")
+    @Mapping(target = "approvedByFullName", source = "approvedBy.fullName")
     BookingDTO toDto(Booking s);
+
+    @Mapping(target = "approvedBy", ignore = true)
+    Booking toEntity(BookingDTO dto);
 
     @Named("roomName")
     @BeanMapping(ignoreByDefault = true)

@@ -14,13 +14,14 @@ import org.springframework.stereotype.Repository;
 public interface RoomRepository extends JpaRepository<Room, Long> {
     /**
      * Rooms visible to a non-admin user: public OR locked to their department.
-     * Optional {@code active} filter ({@code null} = all). Optional text {@code q}.
+     * Optional {@code active} / {@code vip} filters ({@code null} = all). Optional text {@code q}.
      */
     @Query(
         value = """
         select room from Room room
         left join fetch room.lockedDepartment dept
         where (:active is null or room.isActive = :active)
+          and (:vip is null or room.isVip = :vip)
           and (
             room.lockedDepartment is null
             or (:departmentId is not null and room.lockedDepartment.id = :departmentId)
@@ -39,6 +40,7 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
         select count(room) from Room room
         left join room.lockedDepartment dept
         where (:active is null or room.isActive = :active)
+          and (:vip is null or room.isVip = :vip)
           and (
             room.lockedDepartment is null
             or (:departmentId is not null and room.lockedDepartment.id = :departmentId)
@@ -57,6 +59,7 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
     Page<Room> findVisibleForDepartment(
         @Param("departmentId") Long departmentId,
         @Param("active") Boolean active,
+        @Param("vip") Boolean vip,
         @Param("q") String q,
         Pageable pageable
     );
@@ -66,6 +69,7 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
             select room from Room room
             left join fetch room.lockedDepartment dept
             where (:active is null or room.isActive = :active)
+              and (:vip is null or room.isVip = :vip)
               and (
                 :q is null
                 or lower(room.name) like lower(concat('%', cast(:q as string), '%'))
@@ -80,6 +84,7 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
             select count(room) from Room room
             left join room.lockedDepartment dept
             where (:active is null or room.isActive = :active)
+              and (:vip is null or room.isVip = :vip)
               and (
                 :q is null
                 or lower(room.name) like lower(concat('%', cast(:q as string), '%'))
@@ -93,6 +98,7 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
     )
     Page<Room> findAllWithDepartment(
         @Param("active") Boolean active,
+        @Param("vip") Boolean vip,
         @Param("q") String q,
         Pageable pageable
     );

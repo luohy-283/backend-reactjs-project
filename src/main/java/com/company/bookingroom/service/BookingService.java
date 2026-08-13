@@ -4,6 +4,7 @@ import com.company.bookingroom.domain.Booking;
 import com.company.bookingroom.domain.Room;
 import com.company.bookingroom.domain.User;
 import com.company.bookingroom.domain.enumeration.BookingStatus;
+import com.company.bookingroom.domain.enumeration.PaymentStatus;
 import com.company.bookingroom.repository.BookingRepository;
 import com.company.bookingroom.repository.RoomRepository;
 import com.company.bookingroom.repository.UserRepository;
@@ -102,6 +103,11 @@ public class BookingService {
         booking.setPricePerHour(pricePerHour);
         booking.setAmount(BookingPricing.calculateAmount(pricePerHour, bookingDTO.getStartTime(), bookingDTO.getEndTime()));
 
+        if (status == BookingStatus.APPROVED) {
+            booking.setPaymentStatus(PaymentStatus.UNPAID);
+            booking.setApprovedBy(currentUser);
+        }
+
         booking = bookingRepository.saveAndFlush(booking);
         Booking saved = bookingRepository
             .findOneWithEagerRelationships(booking.getId())
@@ -135,6 +141,8 @@ public class BookingService {
     public Page<BookingDTO> findAll(
         Pageable pageable,
         LocalDate date,
+        LocalDate from,
+        LocalDate to,
         BookingStatus status,
         String q,
         Boolean upcoming
@@ -143,35 +151,45 @@ public class BookingService {
         boolean upcomingOnly = Boolean.TRUE.equals(upcoming);
         String search = (q == null || q.isBlank()) ? null : q.trim();
         LOG.debug(
-            "Request to get Bookings pageable={}, date={}, status={}, q={}, upcoming={}",
+            "Request to get Bookings pageable={}, date={}, from={}, to={}, status={}, q={}, upcoming={}",
             pageable,
             date,
+            from,
+            to,
             status,
             search,
             upcomingOnly
         );
-        boolean isAdmin = RoomAccessRules.isAdmin();
+        boolean isManagerOrAbove = RoomAccessRules.isManagerOrAbove();
         Long departmentId = null;
-        if (!isAdmin) {
+        if (!isManagerOrAbove) {
             User current = requireCurrentUser();
             departmentId = current.getDepartment() != null ? current.getDepartment().getId() : null;
         }
         boolean hasDate = date != null;
         Instant dayStart = hasDate ? date.atStartOfDay(APP_ZONE).toInstant() : Instant.EPOCH;
         Instant dayEnd = hasDate ? date.plusDays(1).atStartOfDay(APP_ZONE).toInstant() : Instant.EPOCH;
-        // Day filter without status → only active (PENDING/APPROVED), matching prior list behavior.
-        boolean activeOnly = hasDate && status == null && !upcomingOnly;
+        boolean hasFrom = from != null;
+        boolean hasTo = to != null;
+        Instant rangeStart = hasFrom ? from.atStartOfDay(APP_ZONE).toInstant() : Instant.EPOCH;
+        Instant rangeEnd = hasTo ? to.plusDays(1).atStartOfDay(APP_ZONE).toInstant() : Instant.EPOCH;
+        // Day / range filter without status → only active (PENDING/APPROVED), matching prior list behavior.
+        boolean activeOnly = (hasDate || hasFrom || hasTo) && status == null && !upcomingOnly;
         BookingStatus effectiveStatus = upcomingOnly && status == null ? BookingStatus.APPROVED : status;
         Page<Booking> page = bookingRepository.findVisibleFiltered(
             effectiveStatus,
             hasDate,
             dayStart,
             dayEnd,
+            hasFrom,
+            hasTo,
+            rangeStart,
+            rangeEnd,
             activeOnly,
             upcomingOnly,
             Instant.now(),
             search,
-            isAdmin,
+            isManagerOrAbove,
             departmentId,
             pageable
         );
@@ -234,9 +252,29 @@ public class BookingService {
 
         assertNoOverlap(booking.getRoom().getId(), booking.getStartTime(), booking.getEndTime(), booking.getId());
         booking.setStatus(BookingStatus.APPROVED);
+        booking.setPaymentStatus(PaymentStatus.UNPAID);
+        booking.setApprovedBy(requireCurrentUser());
         Booking saved = bookingRepository.save(booking);
         notificationService.clearPendingBookingNotifications(saved.getId());
         notificationService.notifyBookingApproved(saved);
+        return bookingMapper.toDto(saved);
+    }
+
+    /**
+     * Mark an APPROVED unpaid invoice as PAID (MANAGER+).
+     */
+    public BookingDTO markPaid(Long id) {
+        Booking booking = bookingRepository
+            .findOneWithEagerRelationships(id)
+            .orElseThrow(() -> new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound"));
+        if (booking.getStatus() != BookingStatus.APPROVED) {
+            throw new BadRequestAlertException("Only APPROVED bookings can be marked paid", ENTITY_NAME, "invalidstatus");
+        }
+        if (booking.getPaymentStatus() == PaymentStatus.PAID) {
+            throw new BadRequestAlertException("Invoice already paid", ENTITY_NAME, "alreadypaid");
+        }
+        booking.setPaymentStatus(PaymentStatus.PAID);
+        Booking saved = bookingRepository.save(booking);
         return bookingMapper.toDto(saved);
     }
 

@@ -6,6 +6,10 @@ import com.company.bookingroom.security.*;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.access.expression.method.DefaultMethodSecurityExpressionHandler;
+import org.springframework.security.access.expression.method.MethodSecurityExpressionHandler;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -31,6 +35,28 @@ public class SecurityConfiguration {
         return new BCryptPasswordEncoder();
     }
 
+    /**
+     * ROLE_ADMIN &gt; ROLE_MANAGER &gt; ROLE_STAFF &gt; ROLE_USER so
+     * {@code hasAuthority('ROLE_MANAGER')} also admits ADMIN.
+     */
+    @Bean
+    public RoleHierarchy roleHierarchy() {
+        return RoleHierarchyImpl.fromHierarchy(
+            """
+            ROLE_ADMIN > ROLE_MANAGER
+            ROLE_MANAGER > ROLE_STAFF
+            ROLE_STAFF > ROLE_USER
+            """
+        );
+    }
+
+    @Bean
+    static MethodSecurityExpressionHandler methodSecurityExpressionHandler(RoleHierarchy roleHierarchy) {
+        DefaultMethodSecurityExpressionHandler handler = new DefaultMethodSecurityExpressionHandler();
+        handler.setRoleHierarchy(roleHierarchy);
+        return handler;
+    }
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) {
         http.cors(withDefaults())
@@ -41,7 +67,13 @@ public class SecurityConfiguration {
                     .requestMatchers(HttpMethod.POST, "/api/authenticate").permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/authenticate").permitAll()
                     .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
-                    .requestMatchers("/api/admin/**").hasAuthority(AuthoritiesConstants.ADMIN)
+                    .requestMatchers(HttpMethod.POST, "/api/auth/signup").permitAll()
+                    // SockJS handshake/info; JWT is enforced on STOMP CONNECT (WebSocketConfig)
+                    .requestMatchers("/ws/**").permitAll()
+                    // User admin CRUD stays ADMIN-only
+                    .requestMatchers("/api/admin/users", "/api/admin/users/**").hasAuthority(AuthoritiesConstants.ADMIN)
+                    // Other /api/admin/** (revenue, dept-change, rooms/bookings aliases): MANAGER+
+                    .requestMatchers("/api/admin/**").hasAnyAuthority(AuthoritiesConstants.ADMIN, AuthoritiesConstants.MANAGER)
                     .requestMatchers("/api/**").authenticated()
                     .requestMatchers("/v3/api-docs/**").hasAuthority(AuthoritiesConstants.ADMIN)
                     .requestMatchers("/management/health").permitAll()

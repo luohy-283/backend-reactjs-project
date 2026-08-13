@@ -48,6 +48,9 @@ public class CacheConfiguration {
             createCache(cm, com.company.bookingroom.domain.Booking.class.getName());
             createCache(cm, com.company.bookingroom.domain.Department.class.getName());
             createCache(cm, com.company.bookingroom.domain.DepartmentChangeRequest.class.getName());
+            createCache(cm, com.company.bookingroom.domain.Equipment.class.getName());
+            createCache(cm, com.company.bookingroom.domain.RoomEquipment.class.getName());
+            createCache(cm, com.company.bookingroom.domain.EquipmentPurchase.class.getName());
             // jhipster-needle-ehcache-add-entry
         };
     }

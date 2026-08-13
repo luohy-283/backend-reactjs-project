@@ -3,7 +3,7 @@ package com.company.bookingroom.service.dto;
 import com.company.bookingroom.config.Constants;
 import com.company.bookingroom.domain.Authority;
 import com.company.bookingroom.domain.User;
-import com.company.bookingroom.service.dto.DepartmentDTO;
+import com.company.bookingroom.security.RoleMapping;
 import jakarta.validation.constraints.*;
 import java.io.Serial;
 import java.io.Serializable;
@@ -45,6 +45,9 @@ public class AdminUserDTO implements Serializable {
 
     private Set<String> authorities;
 
+    /** Frontend role: ADMIN|MANAGER|STAFF|USER */
+    private String role;
+
     /** Optional on create; ignored on update unless provided. */
     @Size(min = 4, max = 100)
     private String password;
@@ -66,6 +69,7 @@ public class AdminUserDTO implements Serializable {
         this.lastModifiedBy = user.getLastModifiedBy();
         this.lastModifiedDate = user.getLastModifiedDate();
         this.authorities = user.getAuthorities().stream().map(Authority::getName).collect(Collectors.toSet());
+        this.role = RoleMapping.toFrontendRole(this.authorities);
         if (user.getDepartment() != null) {
             this.department = new DepartmentDTO();
             this.department.setId(user.getDepartment().getId());
@@ -152,6 +156,20 @@ public class AdminUserDTO implements Serializable {
 
     public void setAuthorities(Set<String> authorities) {
         this.authorities = authorities;
+        if (authorities != null && !authorities.isEmpty()) {
+            this.role = RoleMapping.toFrontendRole(authorities);
+        }
+    }
+
+    public String getRole() {
+        return role;
+    }
+
+    public void setRole(String role) {
+        this.role = role;
+        if (role != null && !role.isBlank()) {
+            this.authorities = RoleMapping.toAuthorityNames(role);
+        }
     }
 
     public String getPassword() {
@@ -170,6 +188,22 @@ public class AdminUserDTO implements Serializable {
         this.department = department;
     }
 
+    /** Bridge for FE payloads that send {@code departmentId} instead of nested department. */
+    public Long getDepartmentId() {
+        return department != null ? department.getId() : null;
+    }
+
+    public void setDepartmentId(Long departmentId) {
+        if (departmentId == null) {
+            this.department = null;
+            return;
+        }
+        if (this.department == null) {
+            this.department = new DepartmentDTO();
+        }
+        this.department.setId(departmentId);
+    }
+
     // prettier-ignore
     @Override
     public String toString() {
@@ -178,6 +212,7 @@ public class AdminUserDTO implements Serializable {
             ", fullName='" + fullName + '\'' +
             ", email='" + email + '\'' +
             ", activated=" + activated +
+            ", role='" + role + '\'' +
             ", department=" + department +
             ", createdBy=" + createdBy +
             ", createdDate=" + createdDate +
