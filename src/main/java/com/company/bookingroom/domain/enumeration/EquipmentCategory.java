@@ -8,5 +8,6 @@ public enum EquipmentCategory {
     DISPLAY,
     AUDIO,
     VC,
+    MICROPHONE,
     OTHER,
 }

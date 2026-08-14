@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      Seed room equipment + VIP flags + sample purchase requests for demo / 3D viewer.
+      Equipment catalog ids (from 20260813120000-5): 1 projector, 2 display, 3 audio, 4 VC, 5 mic.
+    -->
+    <changeSet id="20260813160000-seed-room-equipment" author="bookingroom">
+        <update tableName="room">
+            <column name="is_vip" valueBoolean="true"/>
+            <column name="vip_amenities" value="VIDEO_4K,SOUNDPROOF"/>
+            <where>id = 3</where>
+        </update>
+        <update tableName="room">
+            <column name="is_vip" valueBoolean="true"/>
+            <column name="vip_amenities" value="VIDEO_4K,SOUNDPROOF,CATERING,DEDICATED_SUPPORT"/>
+            <where>id = 27</where>
+        </update>
+
+        <!-- Phòng Coda: basic AV -->
+        <insert tableName="room_equipment">
+            <column name="id" valueNumeric="1"/>
+            <column name="room_id" valueNumeric="1"/>
+            <column name="equipment_id" valueNumeric="1"/>
+            <column name="quantity" valueNumeric="1"/>
+            <column name="status" value="OK"/>
+        </insert>
+        <insert tableName="room_equipment">
+            <column name="id" valueNumeric="2"/>
+            <column name="room_id" valueNumeric="1"/>
+            <column name="equipment_id" valueNumeric="2"/>
+            <column name="quantity" valueNumeric="1"/>
+            <column name="status" value="OK"/>
+        </insert>
+
+        <!-- Phòng Họp Lớn (VIP): full set -->
+        <insert tableName="room_equipment">
+            <column name="id" valueNumeric="3"/>
+            <column name="room_id" valueNumeric="3"/>
+            <column name="equipment_id" valueNumeric="1"/>
+            <column name="quantity" valueNumeric="2"/>
+            <column name="status" value="OK"/>
+        </insert>
+        <insert tableName="room_equipment">
+            <column name="id" valueNumeric="4"/>
+            <column name="room_id" valueNumeric="3"/>
+            <column name="equipment_id" valueNumeric="2"/>
+            <column name="quantity" valueNumeric="2"/>
+            <column name="status" value="OK"/>
+        </insert>
+        <insert tableName="room_equipment">
+            <column name="id" valueNumeric="5"/>
+            <column name="room_id" valueNumeric="3"/>
+            <column name="equipment_id" valueNumeric="3"/>
+            <column name="quantity" valueNumeric="2"/>
+            <column name="status" value="OK"/>
+        </insert>
+        <insert tableName="room_equipment">
+            <column name="id" valueNumeric="6"/>
+            <column name="room_id" valueNumeric="3"/>
+            <column name="equipment_id" valueNumeric="4"/>
+            <column name="quantity" valueNumeric="1"/>
+            <column name="status" value="OK"/>
+        </insert>
+        <insert tableName="room_equipment">
+            <column name="id" valueNumeric="7"/>
+            <column name="room_id" valueNumeric="3"/>
+            <column name="equipment_id" valueNumeric="5"/>
+            <column name="quantity" valueNumeric="4"/>
+            <column name="status" value="OK"/>
+        </insert>
+
+        <!-- Phòng Alpha: retired projector (hidden in 3D) -->
+        <insert tableName="room_equipment">
+            <column name="id" valueNumeric="8"/>
+            <column name="room_id" valueNumeric="4"/>
+            <column name="equipment_id" valueNumeric="1"/>
+            <column name="quantity" valueNumeric="1"/>
+            <column name="status" value="RETIRED"/>
+        </insert>
+
+        <!-- Phòng Zeta (small): wireless mics only -->
+        <insert tableName="room_equipment">
+            <column name="id" valueNumeric="9"/>
+            <column name="room_id" valueNumeric="9"/>
+            <column name="equipment_id" valueNumeric="5"/>
+            <column name="quantity" valueNumeric="2"/>
+            <column name="status" value="OK"/>
+        </insert>
+
+        <!-- Phòng Lambda: mixed OK + broken -->
+        <insert tableName="room_equipment">
+            <column name="id" valueNumeric="10"/>
+            <column name="room_id" valueNumeric="14"/>
+            <column name="equipment_id" valueNumeric="1"/>
+            <column name="quantity" valueNumeric="1"/>
+            <column name="status" value="OK"/>
+        </insert>
+        <insert tableName="room_equipment">
+            <column name="id" valueNumeric="11"/>
+            <column name="room_id" valueNumeric="14"/>
+            <column name="equipment_id" valueNumeric="3"/>
+            <column name="quantity" valueNumeric="2"/>
+            <column name="status" value="BROKEN"/>
+        </insert>
+        <insert tableName="room_equipment">
+            <column name="id" valueNumeric="12"/>
+            <column name="room_id" valueNumeric="14"/>
+            <column name="equipment_id" valueNumeric="2"/>
+            <column name="quantity" valueNumeric="1"/>
+            <column name="status" value="OK"/>
+        </insert>
+
+        <!-- Phòng Omega (VIP flagship): premium AV -->
+        <insert tableName="room_equipment">
+            <column name="id" valueNumeric="13"/>
+            <column name="room_id" valueNumeric="27"/>
+            <column name="equipment_id" valueNumeric="1"/>
+            <column name="quantity" valueNumeric="2"/>
+            <column name="status" value="OK"/>
+        </insert>
+        <insert tableName="room_equipment">
+            <column name="id" valueNumeric="14"/>
+            <column name="room_id" valueNumeric="27"/>
+            <column name="equipment_id" valueNumeric="2"/>
+            <column name="quantity" valueNumeric="3"/>
+            <column name="status" value="OK"/>
+        </insert>
+        <insert tableName="room_equipment">
+            <column name="id" valueNumeric="15"/>
+            <column name="room_id" valueNumeric="27"/>
+            <column name="equipment_id" valueNumeric="3"/>
+            <column name="quantity" valueNumeric="4"/>
+            <column name="status" value="OK"/>
+        </insert>
+        <insert tableName="room_equipment">
+            <column name="id" valueNumeric="16"/>
+            <column name="room_id" valueNumeric="27"/>
+            <column name="equipment_id" valueNumeric="4"/>
+            <column name="quantity" valueNumeric="2"/>
+            <column name="status" value="OK"/>
+        </insert>
+        <insert tableName="room_equipment">
+            <column name="id" valueNumeric="17"/>
+            <column name="room_id" valueNumeric="27"/>
+            <column name="equipment_id" valueNumeric="5"/>
+            <column name="quantity" valueNumeric="6"/>
+            <column name="status" value="OK"/>
+        </insert>
+
+        <!-- Inactive Phòng Sigma: broken display -->
+        <insert tableName="room_equipment">
+            <column name="id" valueNumeric="18"/>
+            <column name="room_id" valueNumeric="21"/>
+            <column name="equipment_id" valueNumeric="2"/>
+            <column name="quantity" valueNumeric="1"/>
+            <column name="status" value="BROKEN"/>
+        </insert>
+
+        <sql>SELECT setval('sequence_generator', GREATEST((SELECT MAX(id) FROM room_equipment), nextval('sequence_generator') - 1))</sql>
+    </changeSet>
+
+    <changeSet id="20260813160000-seed-equipment-purchases" author="bookingroom">
+        <insert tableName="equipment_purchase">
+            <column name="id" valueNumeric="1"/>
+            <column name="room_id" valueNumeric="2"/>
+            <column name="equipment_id" valueNumeric="4"/>
+            <column name="quantity" valueNumeric="1"/>
+            <column name="unit_cost" valueNumeric="6500000"/>
+            <column name="reason" value="Thêm camera họp trực tuyến cho phòng Tầng 3"/>
+            <column name="status" value="PENDING"/>
+            <column name="requested_by_id" valueNumeric="2"/>
+            <column name="created_by" value="user@company.com"/>
+            <column name="created_date" valueDate="CURRENT_TIMESTAMP"/>
+        </insert>
+        <insert tableName="equipment_purchase">
+            <column name="id" valueNumeric="2"/>
+            <column name="room_id" valueNumeric="14"/>
+            <column name="equipment_id" valueNumeric="3"/>
+            <column name="quantity" valueNumeric="2"/>
+            <column name="unit_cost" valueNumeric="3500000"/>
+            <column name="reason" value="Thay loa hỏng Phòng Lambda"/>
+            <column name="status" value="APPROVED"/>
+            <column name="requested_by_id" valueNumeric="2"/>
+            <column name="approved_by_id" valueNumeric="1"/>
+            <column name="created_by" value="user@company.com"/>
+            <column name="created_date" valueDate="CURRENT_TIMESTAMP"/>
+        </insert>
+        <insert tableName="equipment_purchase">
+            <column name="id" valueNumeric="3"/>
+            <column name="room_id" valueNumeric="6"/>
+            <column name="equipment_id" valueNumeric="1"/>
+            <column name="quantity" valueNumeric="1"/>
+            <column name="unit_cost" valueNumeric="8500000"/>
+            <column name="reason" value="Nâng cấp máy chiếu Phòng Gamma"/>
+            <column name="status" value="FULFILLED"/>
+            <column name="requested_by_id" valueNumeric="2"/>
+            <column name="approved_by_id" valueNumeric="1"/>
+            <column name="fulfilled_at" valueDate="CURRENT_TIMESTAMP"/>
+            <column name="created_by" value="user@company.com"/>
+            <column name="created_date" valueDate="CURRENT_TIMESTAMP"/>
+        </insert>
+        <sql>SELECT setval('sequence_generator', GREATEST((SELECT MAX(id) FROM equipment_purchase), nextval('sequence_generator') - 1))</sql>
+    </changeSet>
+</databaseChangeLog>

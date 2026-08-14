@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20260813180000-1-room-layout-columns" author="bookingroom">
+        <addColumn tableName="room">
+            <column name="layout_type" type="varchar(20)" defaultValue="STANDARD">
+                <constraints nullable="false"/>
+            </column>
+            <column name="floor_width_m" type="decimal(5,2)" defaultValueNumeric="6.00">
+                <constraints nullable="false"/>
+            </column>
+            <column name="floor_depth_m" type="decimal(5,2)" defaultValueNumeric="4.50">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <!-- Diverse capacity vs floor-area cases for demo / 3D / dashboard density -->
+    <changeSet id="20260813180000-2-seed-room-layout" author="bookingroom">
+        <sql><![CDATA[
+UPDATE room SET layout_type = 'SPACIOUS',   floor_width_m = 8.00,  floor_depth_m = 6.00  WHERE id = 1;  -- Coda: 8 chỗ, rộng
+UPDATE room SET layout_type = 'STANDARD',   floor_width_m = 7.00,  floor_depth_m = 5.00  WHERE id = 2;  -- Tầng 3
+UPDATE room SET layout_type = 'SPACIOUS',   floor_width_m = 12.00, floor_depth_m = 8.00  WHERE id = 3;  -- Họp Lớn
+UPDATE room SET layout_type = 'STANDARD',   floor_width_m = 5.50,  floor_depth_m = 4.00  WHERE id = 4;  -- Alpha
+UPDATE room SET layout_type = 'STANDARD',   floor_width_m = 6.50,  floor_depth_m = 5.00  WHERE id = 5;  -- Beta
+UPDATE room SET layout_type = 'SPACIOUS',   floor_width_m = 9.00,  floor_depth_m = 6.50  WHERE id = 6;  -- Gamma
+UPDATE room SET layout_type = 'STANDARD',   floor_width_m = 6.00,  floor_depth_m = 4.50  WHERE id = 7;  -- Delta
+UPDATE room SET layout_type = 'BOARDROOM',  floor_width_m = 10.00, floor_depth_m = 5.50  WHERE id = 8;  -- Epsilon
+UPDATE room SET layout_type = 'COMPACT',    floor_width_m = 4.00,  floor_depth_m = 3.00  WHERE id = 9;  -- Zeta: 4 chỗ, nhỏ
+UPDATE room SET layout_type = 'SPACIOUS',   floor_width_m = 11.00, floor_depth_m = 7.00  WHERE id = 10; -- Eta
+UPDATE room SET layout_type = 'STANDARD',   floor_width_m = 6.50,  floor_depth_m = 5.00  WHERE id = 11; -- Theta
+UPDATE room SET layout_type = 'STANDARD',   floor_width_m = 6.00,  floor_depth_m = 4.50  WHERE id = 12; -- Iota
+UPDATE room SET layout_type = 'STANDARD',   floor_width_m = 7.50,  floor_depth_m = 5.50  WHERE id = 13; -- Kappa
+UPDATE room SET layout_type = 'BOARDROOM',  floor_width_m = 10.00, floor_depth_m = 5.00  WHERE id = 14; -- Lambda: 24 chỗ, sàn vừa (mật độ cao)
+UPDATE room SET layout_type = 'COMPACT',    floor_width_m = 4.50,  floor_depth_m = 3.50  WHERE id = 15; -- Mu
+UPDATE room SET layout_type = 'STANDARD',   floor_width_m = 6.50,  floor_depth_m = 5.00  WHERE id = 16; -- Nu
+UPDATE room SET layout_type = 'SPACIOUS',   floor_width_m = 9.00,  floor_depth_m = 6.00  WHERE id = 17; -- Xi
+UPDATE room SET layout_type = 'STANDARD',   floor_width_m = 6.00,  floor_depth_m = 4.50  WHERE id = 18; -- Omicron
+UPDATE room SET layout_type = 'SPACIOUS',   floor_width_m = 11.00, floor_depth_m = 7.50  WHERE id = 19; -- Pi
+UPDATE room SET layout_type = 'COMPACT',    floor_width_m = 4.50,  floor_depth_m = 3.50  WHERE id = 20; -- Rho
+UPDATE room SET layout_type = 'STANDARD',   floor_width_m = 7.00,  floor_depth_m = 5.00  WHERE id = 21; -- Sigma inactive
+UPDATE room SET layout_type = 'STANDARD',   floor_width_m = 6.00,  floor_depth_m = 4.50  WHERE id = 22; -- Tau inactive
+UPDATE room SET layout_type = 'BOARDROOM',  floor_width_m = 9.50,  floor_depth_m = 5.50  WHERE id = 23; -- Upsilon
+UPDATE room SET layout_type = 'STANDARD',   floor_width_m = 6.50,  floor_depth_m = 5.00  WHERE id = 24; -- Phi
+UPDATE room SET layout_type = 'STANDARD',   floor_width_m = 6.00,  floor_depth_m = 4.50  WHERE id = 25; -- Chi
+UPDATE room SET layout_type = 'SPACIOUS',   floor_width_m = 9.00,  floor_depth_m = 6.00  WHERE id = 26; -- Psi
+UPDATE room SET layout_type = 'AUDITORIUM', floor_width_m = 14.00, floor_depth_m = 10.00 WHERE id = 27; -- Omega: 30 chỗ
+UPDATE room SET layout_type = 'COMPACT',    floor_width_m = 4.50,  floor_depth_m = 3.50  WHERE id = 28; -- Studio
+        ]]></sql>
+    </changeSet>
+</databaseChangeLog>

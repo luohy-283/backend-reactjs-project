@@ -1,8 +1,12 @@
 package com.company.bookingroom.service.dto;
 
+import com.company.bookingroom.domain.enumeration.EquipmentCategory;
+import com.company.bookingroom.domain.enumeration.RoomLayoutType;
 import jakarta.validation.constraints.*;
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -33,6 +37,20 @@ public class RoomDTO implements Serializable {
 
     @Size(max = 500)
     private String vipAmenities;
+
+    private RoomLayoutType layoutType;
+
+    @DecimalMin(value = "1.0")
+    private BigDecimal floorWidthM;
+
+    @DecimalMin(value = "1.0")
+    private BigDecimal floorDepthM;
+
+    /** Distinct OK equipment categories present in the room (list enrichment / filter). */
+    private List<EquipmentCategory> equipmentCategories = new ArrayList<>();
+
+    /** Distinct OK equipment catalog names (list enrichment / UI labels). */
+    private List<String> equipmentNames = new ArrayList<>();
 
     public Long getId() {
         return id;
@@ -98,6 +116,46 @@ public class RoomDTO implements Serializable {
         this.vipAmenities = vipAmenities;
     }
 
+    public RoomLayoutType getLayoutType() {
+        return layoutType;
+    }
+
+    public void setLayoutType(RoomLayoutType layoutType) {
+        this.layoutType = layoutType;
+    }
+
+    public BigDecimal getFloorWidthM() {
+        return floorWidthM;
+    }
+
+    public void setFloorWidthM(BigDecimal floorWidthM) {
+        this.floorWidthM = floorWidthM;
+    }
+
+    public BigDecimal getFloorDepthM() {
+        return floorDepthM;
+    }
+
+    public void setFloorDepthM(BigDecimal floorDepthM) {
+        this.floorDepthM = floorDepthM;
+    }
+
+    public List<EquipmentCategory> getEquipmentCategories() {
+        return equipmentCategories;
+    }
+
+    public void setEquipmentCategories(List<EquipmentCategory> equipmentCategories) {
+        this.equipmentCategories = equipmentCategories != null ? equipmentCategories : new ArrayList<>();
+    }
+
+    public List<String> getEquipmentNames() {
+        return equipmentNames;
+    }
+
+    public void setEquipmentNames(List<String> equipmentNames) {
+        this.equipmentNames = equipmentNames != null ? equipmentNames : new ArrayList<>();
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -131,6 +189,9 @@ public class RoomDTO implements Serializable {
             ", pricePerHour=" + getPricePerHour() +
             ", isVip='" + getIsVip() + "'" +
             ", vipAmenities='" + getVipAmenities() + "'" +
+            ", layoutType='" + getLayoutType() + "'" +
+            ", floorWidthM=" + getFloorWidthM() +
+            ", floorDepthM=" + getFloorDepthM() +
             "}";
     }
 }

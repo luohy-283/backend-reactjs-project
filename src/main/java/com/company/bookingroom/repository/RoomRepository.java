@@ -1,6 +1,9 @@
 package com.company.bookingroom.repository;
 
 import com.company.bookingroom.domain.Room;
+import com.company.bookingroom.domain.enumeration.EquipmentCategory;
+import java.util.Collection;
+import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.*;
@@ -15,6 +18,7 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
     /**
      * Rooms visible to a non-admin user: public OR locked to their department.
      * Optional {@code active} / {@code vip} filters ({@code null} = all). Optional text {@code q}.
+     * When {@code equipmentCategoryCount > 0}, room must have OK inventory covering all listed categories (AND).
      */
     @Query(
         value = """
@@ -35,6 +39,17 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
               or lower(dept.code) like lower(concat('%', cast(:q as string), '%'))
             ))
           )
+          and (
+            :equipmentCategoryCount = 0
+            or (
+              select count(distinct eq.category)
+              from RoomEquipment re
+              join re.equipment eq
+              where re.room = room
+                and re.status = com.company.bookingroom.domain.enumeration.RoomEquipmentStatus.OK
+                and eq.category in :equipmentCategories
+            ) = :equipmentCategoryCount
+          )
         """,
         countQuery = """
         select count(room) from Room room
@@ -54,6 +69,17 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
               or lower(dept.code) like lower(concat('%', cast(:q as string), '%'))
             ))
           )
+          and (
+            :equipmentCategoryCount = 0
+            or (
+              select count(distinct eq.category)
+              from RoomEquipment re
+              join re.equipment eq
+              where re.room = room
+                and re.status = com.company.bookingroom.domain.enumeration.RoomEquipmentStatus.OK
+                and eq.category in :equipmentCategories
+            ) = :equipmentCategoryCount
+          )
         """
     )
     Page<Room> findVisibleForDepartment(
@@ -61,6 +87,8 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
         @Param("active") Boolean active,
         @Param("vip") Boolean vip,
         @Param("q") String q,
+        @Param("equipmentCategories") Collection<EquipmentCategory> equipmentCategories,
+        @Param("equipmentCategoryCount") long equipmentCategoryCount,
         Pageable pageable
     );
 
@@ -79,6 +107,17 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
                   or lower(dept.code) like lower(concat('%', cast(:q as string), '%'))
                 ))
               )
+              and (
+                :equipmentCategoryCount = 0
+                or (
+                  select count(distinct eq.category)
+                  from RoomEquipment re
+                  join re.equipment eq
+                  where re.room = room
+                    and re.status = com.company.bookingroom.domain.enumeration.RoomEquipmentStatus.OK
+                    and eq.category in :equipmentCategories
+                ) = :equipmentCategoryCount
+              )
             """,
         countQuery = """
             select count(room) from Room room
@@ -94,12 +133,25 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
                   or lower(dept.code) like lower(concat('%', cast(:q as string), '%'))
                 ))
               )
+              and (
+                :equipmentCategoryCount = 0
+                or (
+                  select count(distinct eq.category)
+                  from RoomEquipment re
+                  join re.equipment eq
+                  where re.room = room
+                    and re.status = com.company.bookingroom.domain.enumeration.RoomEquipmentStatus.OK
+                    and eq.category in :equipmentCategories
+                ) = :equipmentCategoryCount
+              )
             """
     )
     Page<Room> findAllWithDepartment(
         @Param("active") Boolean active,
         @Param("vip") Boolean vip,
         @Param("q") String q,
+        @Param("equipmentCategories") Collection<EquipmentCategory> equipmentCategories,
+        @Param("equipmentCategoryCount") long equipmentCategoryCount,
         Pageable pageable
     );
 }

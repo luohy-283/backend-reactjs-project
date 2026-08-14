@@ -3,16 +3,29 @@ package com.company.bookingroom.service;
 import com.company.bookingroom.domain.Department;
 import com.company.bookingroom.domain.Room;
 import com.company.bookingroom.domain.User;
+import com.company.bookingroom.domain.enumeration.EquipmentCategory;
+import com.company.bookingroom.domain.enumeration.RoomLayoutType;
 import com.company.bookingroom.repository.BookingRepository;
 import com.company.bookingroom.repository.DepartmentRepository;
+import com.company.bookingroom.repository.RoomEquipmentRepository;
 import com.company.bookingroom.repository.RoomRepository;
 import com.company.bookingroom.repository.UserRepository;
 import com.company.bookingroom.security.SecurityUtils;
 import com.company.bookingroom.service.dto.RoomDTO;
 import com.company.bookingroom.service.mapper.RoomMapper;
 import com.company.bookingroom.web.rest.errors.BadRequestAlertException;
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -35,36 +48,31 @@ public class RoomService {
     private final BookingRepository bookingRepository;
     private final UserRepository userRepository;
     private final DepartmentRepository departmentRepository;
+    private final RoomEquipmentRepository roomEquipmentRepository;
 
     public RoomService(
         RoomRepository roomRepository,
         RoomMapper roomMapper,
         BookingRepository bookingRepository,
         UserRepository userRepository,
-        DepartmentRepository departmentRepository
+        DepartmentRepository departmentRepository,
+        RoomEquipmentRepository roomEquipmentRepository
     ) {
         this.roomRepository = roomRepository;
         this.roomMapper = roomMapper;
         this.bookingRepository = bookingRepository;
         this.userRepository = userRepository;
         this.departmentRepository = departmentRepository;
+        this.roomEquipmentRepository = roomEquipmentRepository;
     }
 
     public RoomDTO save(RoomDTO roomDTO) {
         LOG.debug("Request to save Room : {}", roomDTO);
-        if (roomDTO.getIsActive() == null) {
-            roomDTO.setIsActive(true);
-        }
-        if (roomDTO.getPricePerHour() == null) {
-            roomDTO.setPricePerHour(java.math.BigDecimal.ZERO);
-        }
-        if (roomDTO.getIsVip() == null) {
-            roomDTO.setIsVip(false);
-        }
+        applyDefaults(roomDTO);
         Room room = roomMapper.toEntity(roomDTO);
         resolveLockedDepartment(room, roomDTO);
         room = roomRepository.save(room);
-        return roomMapper.toDto(room);
+        return enrich(roomMapper.toDto(room));
     }
 
     public RoomDTO update(RoomDTO roomDTO) {
@@ -72,10 +80,11 @@ public class RoomService {
         if (Boolean.FALSE.equals(roomDTO.getIsActive())) {
             assertCanDeactivate(roomDTO.getId());
         }
+        applyDefaults(roomDTO);
         Room room = roomMapper.toEntity(roomDTO);
         resolveLockedDepartment(room, roomDTO);
         room = roomRepository.save(room);
-        return roomMapper.toDto(room);
+        return enrich(roomMapper.toDto(room));
     }
 
     public Optional<RoomDTO> partialUpdate(RoomDTO roomDTO) {
@@ -88,31 +97,55 @@ public class RoomService {
                     assertCanDeactivate(existingRoom.getId());
                 }
                 roomMapper.partialUpdate(existingRoom, roomDTO);
-                if (roomDTO.getLockedDepartment() != null && roomDTO.getLockedDepartment().getId() != null) {
+                // Form PATCH always sends `name` + `lockedDepartment` (object or JSON null).
+                // Status-only PATCH sends only isActive — keep existing lock.
+                if (roomDTO.getName() != null) {
+                    resolveLockedDepartment(existingRoom, roomDTO);
+                } else if (roomDTO.getLockedDepartment() != null && roomDTO.getLockedDepartment().getId() != null) {
                     resolveLockedDepartment(existingRoom, roomDTO);
                 }
                 return existingRoom;
             })
             .map(roomRepository::save)
-            .map(roomMapper::toDto);
+            .map(roomMapper::toDto)
+            .map(this::enrich);
     }
 
     /**
      * @param q optional text search (name, capacity, locked department name/code); blank = ignored
      * @param active {@code true}/{@code false} filter, or {@code null} for all (admin). Non-admin always sees active only.
      * @param vip {@code true}/{@code false} filter, or {@code null} for all
+     * @param equipmentCategories optional AND filter: room must have OK inventory for every listed category
      */
     @Transactional(readOnly = true)
-    public Page<RoomDTO> findAll(Pageable pageable, String q, Boolean active, Boolean vip) {
+    public Page<RoomDTO> findAll(Pageable pageable, String q, Boolean active, Boolean vip, List<EquipmentCategory> equipmentCategories) {
         String query = (q == null || q.isBlank()) ? null : q.trim();
-        LOG.debug("Request to get Rooms (visibility filtered), q={}, active={}, vip={}", query, active, vip);
+        Set<EquipmentCategory> categories = normalizeCategories(equipmentCategories);
+        long categoryCount = categories.size();
+        Collection<EquipmentCategory> categoryParam = categoryCount == 0
+            ? List.of(EquipmentCategory.OTHER)
+            : categories;
+        LOG.debug(
+            "Request to get Rooms (visibility filtered), q={}, active={}, vip={}, equipmentCategories={}",
+            query,
+            active,
+            vip,
+            categories
+        );
+        Page<RoomDTO> page;
         if (RoomAccessRules.isManagerOrAbove()) {
-            return roomRepository.findAllWithDepartment(active, vip, query, pageable).map(roomMapper::toDto);
+            page = roomRepository
+                .findAllWithDepartment(active, vip, query, categoryParam, categoryCount, pageable)
+                .map(roomMapper::toDto);
+        } else {
+            User current = requireCurrentUser();
+            Long departmentId = current.getDepartment() != null ? current.getDepartment().getId() : null;
+            page = roomRepository
+                .findVisibleForDepartment(departmentId, true, vip, query, categoryParam, categoryCount, pageable)
+                .map(roomMapper::toDto);
         }
-        User current = requireCurrentUser();
-        Long departmentId = current.getDepartment() != null ? current.getDepartment().getId() : null;
-        // Non-admin: only active rooms (ignore active=false / omit → still active-only)
-        return roomRepository.findVisibleForDepartment(departmentId, true, vip, query, pageable).map(roomMapper::toDto);
+        enrichPage(page.getContent());
+        return page;
     }
 
     @Transactional(readOnly = true)
@@ -121,7 +154,8 @@ public class RoomService {
         return roomRepository
             .findById(id)
             .filter(room -> RoomAccessRules.canAccess(room, currentUserOrNull()))
-            .map(roomMapper::toDto);
+            .map(roomMapper::toDto)
+            .map(this::enrich);
     }
 
     /**
@@ -141,6 +175,66 @@ public class RoomService {
     public void delete(Long id) {
         LOG.debug("Request to delete Room : {}", id);
         roomRepository.deleteById(id);
+    }
+
+    private void applyDefaults(RoomDTO roomDTO) {
+        if (roomDTO.getIsActive() == null) {
+            roomDTO.setIsActive(true);
+        }
+        if (roomDTO.getPricePerHour() == null) {
+            roomDTO.setPricePerHour(BigDecimal.ZERO);
+        }
+        if (roomDTO.getIsVip() == null) {
+            roomDTO.setIsVip(false);
+        }
+        if (roomDTO.getLayoutType() == null) {
+            roomDTO.setLayoutType(RoomLayoutType.STANDARD);
+        }
+        if (roomDTO.getFloorWidthM() == null) {
+            roomDTO.setFloorWidthM(new BigDecimal("6.00"));
+        }
+        if (roomDTO.getFloorDepthM() == null) {
+            roomDTO.setFloorDepthM(new BigDecimal("4.50"));
+        }
+    }
+
+    private Set<EquipmentCategory> normalizeCategories(List<EquipmentCategory> equipmentCategories) {
+        if (equipmentCategories == null || equipmentCategories.isEmpty()) {
+            return Set.of();
+        }
+        return equipmentCategories.stream().filter(c -> c != null).collect(Collectors.toCollection(() -> EnumSet.noneOf(EquipmentCategory.class)));
+    }
+
+    private RoomDTO enrich(RoomDTO dto) {
+        if (dto.getId() != null) {
+            enrichPage(List.of(dto));
+        }
+        return dto;
+    }
+
+    private void enrichPage(List<RoomDTO> rooms) {
+        if (rooms == null || rooms.isEmpty()) {
+            return;
+        }
+        List<Long> ids = rooms.stream().map(RoomDTO::getId).filter(id -> id != null).toList();
+        if (ids.isEmpty()) {
+            return;
+        }
+        Map<Long, Set<EquipmentCategory>> catsByRoom = new HashMap<>();
+        Map<Long, Set<String>> namesByRoom = new HashMap<>();
+        for (Object[] row : roomEquipmentRepository.findOkEquipmentByRoomIds(ids)) {
+            Long roomId = (Long) row[0];
+            EquipmentCategory category = (EquipmentCategory) row[1];
+            String name = (String) row[2];
+            catsByRoom.computeIfAbsent(roomId, k -> new LinkedHashSet<>()).add(category);
+            if (name != null && !name.isBlank()) {
+                namesByRoom.computeIfAbsent(roomId, k -> new LinkedHashSet<>()).add(name);
+            }
+        }
+        for (RoomDTO room : rooms) {
+            room.setEquipmentCategories(new ArrayList<>(catsByRoom.getOrDefault(room.getId(), Set.of())));
+            room.setEquipmentNames(new ArrayList<>(namesByRoom.getOrDefault(room.getId(), Set.of())));
+        }
     }
 
     private void resolveLockedDepartment(Room room, RoomDTO roomDTO) {

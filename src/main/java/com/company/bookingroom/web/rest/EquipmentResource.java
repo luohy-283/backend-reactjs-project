@@ -61,12 +61,7 @@ public class EquipmentResource {
         @Valid @RequestBody EquipmentDTO dto
     ) {
         LOG.debug("REST request to update Equipment : {}, {}", id, dto);
-        if (dto.getId() == null) {
-            throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, dto.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
-        }
+        bindPathId(id, dto);
         if (!equipmentRepository.existsById(id)) {
             throw new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound");
         }
@@ -83,12 +78,7 @@ public class EquipmentResource {
         @NotNull @RequestBody EquipmentDTO dto
     ) {
         LOG.debug("REST request to partial update Equipment : {}, {}", id, dto);
-        if (dto.getId() == null) {
-            throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, dto.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
-        }
+        bindPathId(id, dto);
         if (!equipmentRepository.existsById(id)) {
             throw new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound");
         }
@@ -112,5 +102,18 @@ public class EquipmentResource {
     @GetMapping("/{id}")
     public ResponseEntity<EquipmentDTO> getOne(@PathVariable("id") Long id) {
         return ResponseUtil.wrapOrNotFound(equipmentService.findOne(id));
+    }
+
+    private static void bindPathId(Long pathId, EquipmentDTO dto) {
+        if (pathId == null) {
+            throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
+        }
+        if (dto.getId() == null) {
+            dto.setId(pathId);
+            return;
+        }
+        if (!Objects.equals(pathId, dto.getId())) {
+            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
+        }
     }
 }

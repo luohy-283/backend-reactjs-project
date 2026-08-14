@@ -1,5 +1,6 @@
 package com.company.bookingroom.web.rest;
 
+import com.company.bookingroom.domain.enumeration.EquipmentCategory;
 import com.company.bookingroom.repository.RoomRepository;
 import com.company.bookingroom.security.AuthoritiesConstants;
 import com.company.bookingroom.service.RoomService;
@@ -9,6 +10,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -85,12 +87,7 @@ public class RoomResource {
         @Valid @RequestBody RoomDTO roomDTO
     ) throws URISyntaxException {
         LOG.debug("REST request to update Room : {}, {}", id, roomDTO);
-        if (roomDTO.getId() == null) {
-            throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, roomDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
-        }
+        bindPathId(id, roomDTO);
 
         if (!roomRepository.existsById(id)) {
             throw new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound");
@@ -120,12 +117,7 @@ public class RoomResource {
         @NotNull @RequestBody RoomDTO roomDTO
     ) throws URISyntaxException {
         LOG.debug("REST request to partial update Room partially : {}, {}", id, roomDTO);
-        if (roomDTO.getId() == null) {
-            throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
-        }
-        if (!Objects.equals(id, roomDTO.getId())) {
-            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
-        }
+        bindPathId(id, roomDTO);
 
         if (!roomRepository.existsById(id)) {
             throw new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound");
@@ -141,18 +133,26 @@ public class RoomResource {
 
     /**
      * {@code GET  /api/rooms} : get a page of Rooms.
-     * Query: {@code page} (0-based), {@code size}, {@code sort}, optional {@code q}, optional {@code active}, optional {@code vip}.
-     * Example: {@code /api/rooms?page=0&size=10&sort=name,asc&q=coda&active=true&vip=true}
+     * Query: {@code page} (0-based), {@code size}, {@code sort}, optional {@code q}, optional {@code active}, optional {@code vip},
+     * optional repeated {@code equipmentCategory} (AND — room must have OK inventory for each).
+     * Example: {@code /api/rooms?page=0&size=10&sort=name,asc&q=coda&active=true&vip=true&equipmentCategory=PROJECTOR&equipmentCategory=DISPLAY}
      */
     @GetMapping("")
     public Page<RoomDTO> getAllRooms(
         @PageableDefault(size = 20) @org.springdoc.core.annotations.ParameterObject Pageable pageable,
         @RequestParam(name = "q", required = false) String q,
         @RequestParam(name = "active", required = false) Boolean active,
-        @RequestParam(name = "vip", required = false) Boolean vip
+        @RequestParam(name = "vip", required = false) Boolean vip,
+        @RequestParam(name = "equipmentCategory", required = false) List<EquipmentCategory> equipmentCategory
     ) {
-        LOG.debug("REST request to get a page of Rooms, q={}, active={}, vip={}", q, active, vip);
-        return roomService.findAll(pageable, q, active, vip);
+        LOG.debug(
+            "REST request to get a page of Rooms, q={}, active={}, vip={}, equipmentCategory={}",
+            q,
+            active,
+            vip,
+            equipmentCategory
+        );
+        return roomService.findAll(pageable, q, active, vip, equipmentCategory);
     }
 
     /**
@@ -179,5 +179,19 @@ public class RoomResource {
         return ResponseEntity.noContent()
             .headers(HeaderUtil.createEntityDeletionAlert(applicationName, false, ENTITY_NAME, id.toString()))
             .build();
+    }
+
+    /** FE PATCH may omit body.id; path is source of truth. Mismatch → 400 idinvalid. */
+    private static void bindPathId(Long pathId, RoomDTO roomDTO) {
+        if (pathId == null) {
+            throw new BadRequestAlertException("Invalid id", ENTITY_NAME, "idnull");
+        }
+        if (roomDTO.getId() == null) {
+            roomDTO.setId(pathId);
+            return;
+        }
+        if (!Objects.equals(pathId, roomDTO.getId())) {
+            throw new BadRequestAlertException("Invalid ID", ENTITY_NAME, "idinvalid");
+        }
     }
 }

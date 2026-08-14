@@ -30,6 +30,9 @@
     <include file="config/liquibase/changelog/20260813100000_role_manager_staff.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260813120000_equipment_and_room_vip.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20260813140000_booking_payment_approved_by.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260813160000_seed_room_equipment.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260813180000_room_layout.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20260813190000_equipment_microphone.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>
 

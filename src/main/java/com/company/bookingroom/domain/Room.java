@@ -1,5 +1,6 @@
 package com.company.bookingroom.domain;
 
+import com.company.bookingroom.domain.enumeration.RoomLayoutType;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import java.io.Serial;
@@ -66,6 +67,21 @@ public class Room implements Serializable {
     @Size(max = 500)
     @Column(name = "vip_amenities", length = 500)
     private String vipAmenities;
+
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(name = "layout_type", length = 20, nullable = false)
+    private RoomLayoutType layoutType = RoomLayoutType.STANDARD;
+
+    @NotNull
+    @DecimalMin(value = "1.0")
+    @Column(name = "floor_width_m", precision = 5, scale = 2, nullable = false)
+    private BigDecimal floorWidthM = new BigDecimal("6.00");
+
+    @NotNull
+    @DecimalMin(value = "1.0")
+    @Column(name = "floor_depth_m", precision = 5, scale = 2, nullable = false)
+    private BigDecimal floorDepthM = new BigDecimal("4.50");
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
 
@@ -151,6 +167,30 @@ public class Room implements Serializable {
 
     public void setVipAmenities(String vipAmenities) {
         this.vipAmenities = vipAmenities;
+    }
+
+    public RoomLayoutType getLayoutType() {
+        return layoutType;
+    }
+
+    public void setLayoutType(RoomLayoutType layoutType) {
+        this.layoutType = layoutType;
+    }
+
+    public BigDecimal getFloorWidthM() {
+        return floorWidthM;
+    }
+
+    public void setFloorWidthM(BigDecimal floorWidthM) {
+        this.floorWidthM = floorWidthM;
+    }
+
+    public BigDecimal getFloorDepthM() {
+        return floorDepthM;
+    }
+
+    public void setFloorDepthM(BigDecimal floorDepthM) {
+        this.floorDepthM = floorDepthM;
     }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here
